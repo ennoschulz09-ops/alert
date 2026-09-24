@@ -93,11 +93,12 @@ const CF=[['liq','Min. Liquidität $'],['vol','Min. Vol 1h $'],['mmin','Min. MCa
 const PR={Konservativ:{liq:3e4,vol:5e4,mmin:1e5,mmax:1e7,ratio:.6,score:75},Ausgewogen:{liq:1e4,vol:2e4,mmin:5e4,mmax:5e6,ratio:.55,score:55},Aggressiv:{liq:5e3,vol:1e4,mmin:2e4,mmax:5e6,ratio:.5,score:55}};
 const DM=40;
 let C={liq:1e4,vol:2e4,mmin:5e4,mmax:5e6,ratio:.55,score:55,cooldown:30,watchPct:15,devMax:15,quietFrom:'',quietTo:'',sound:1,tgToken:'',tgChat:'',workerUrl:'',vapidKey:'',botUrl:'',botKey:'',tgMin:80,minAge:6};Object.assign(C,ld('c',{}));if(+C.score===60)C.score=55;C.score=Math.max(55,+C.score||55);
+if(ld('wipe',0)<1){['pt','tr','stz','stzh','rc','h','fd','s2','snz','wv','bwt'].forEach(k=>{try{localStorage.removeItem(k)}catch(e){}});sv('pt',{open:{},done:[],rs:Date.now()});sv('wipe',1)}
 const inQuiet=()=>{if(C.quietFrom===''||C.quietTo===''||C.quietFrom==null||C.quietTo==null)return false;const h=new Date().getHours(),f=+C.quietFrom,t=+C.quietTo;return f<t?(h>=f&&h<t):(h>=f||h<t)};
 let LK={},view='home',LE='',R=[],FD=ld('fd',[]),SP={},KN=null,bad=0,nxt=0,key='score',dir=-1;
 let W=new Set(ld('w',[])),SM=ld('s2',null);if(!SM){SM={};(ld('s',[])||[]).forEach(k=>SM[k]=Date.now())}
 let Hh=ld('h',{}),RC=ld('rc',{}),RCbusy=new Set(),CE=ld('ce',null);if(!CE)CE=[...CHAINS];
-let PT=ld('pt',{open:{},done:[]}),PTC={size:.1,tp:.2,sl:.5,min:55,fee:.01,start:2,arm:.2,cap:1.5,tr:.12,tr2:.15,floor:.08,stages:[[.25,1/3],[.6,1/3]],maxOpen:3,maxRun1:120,maxMcLiq:30,confirm:45e3,rug:.4,stagMin:90,stagBand:.1,dayLoss:.3,minAge:.5,minLiq:15e3,maxRun:40,top10:50};
+let PT=ld('pt',{open:{},done:[]}),PTC={size:.2,tp:.2,sl:.2,min:55,fee:.01,start:2,arm:.2,cap:1.5,tr:.12,tr2:.15,floor:.08,stages:[[.25,1/3],[.6,1/3]],maxOpen:3,maxRun1:120,maxMcLiq:30,confirm:45e3,rug:.3,stagMin:90,stagBand:.1,dayLoss:.3,minAge:.5,minLiq:15e3,maxRun:40,top10:40,top1:25,ins:20,holdMin:60,tfee:5};
 let TR=ld('tr',{}),STZ=ld('stz',{wins:0,losses:0,total:0}),STZH=ld('stzh',[]);
 let WV=ld('wv',{}),CP=false,SNZ=ld('snz',{});
 const fl=r=>{const f=[];if(r.age!=null&&r.age<.25)f.push('BRANDNEU');if(r.mc&&r.liq/r.mc<.03)f.push('DÜNNE LIQ');if(r.b+r.s>=20&&r.ratio<.4)f.push('VERKÄUFER');if(r.c1<-30)f.push('DUMP');if(r.boost)f.push('BOOST');if(r.b>=10&&r.s==0&&r.v1>1000)f.push('MÖGL. HONEYPOT');return f};
@@ -107,7 +108,8 @@ const sc=r=>{let s=Math.min(30,r.v1/Math.max(r.liq,1)*10)+Math.max(0,r.ratio-.5)
  if(r.age!=null){if(r.age<.05)s-=5;else if(r.age<3)s+=5;else if(r.age>24)s-=5}
  return Math.round(Math.max(0,Math.min(100,s)))};
 const hit=r=>r.liq>=C.liq&&r.v1>=C.vol&&r.mc>=C.mmin&&r.mc<=C.mmax&&r.ratio>=C.ratio&&r.score>=C.score;
-function rcCheck(addr){const c=RC[addr];if(c&&Date.now()-c.t<6e5)return c;
+const RCT=18e4;
+function rcCheck(addr){const c=RC[addr];if(c&&Date.now()-c.t<RCT)return c;
  if(!RCbusy.has(addr)){RCbusy.add(addr);
   fetch('https://api.rugcheck.xyz/v1/tokens/'+addr+'/report').then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}).then(j=>{
    const risks=(j.risks||[]).filter(x=>x&&(x.level=='danger'||x.level=='warn')).map(x=>x.name||x.description||'Risiko');
@@ -116,8 +118,9 @@ function rcCheck(addr){const c=RC[addr];if(c&&Date.now()-c.t<6e5)return c;
    if(dev)devPct=dev.pct??dev.percentage??dev.share??null;
    const mp=new Set((j.markets||[]).map(m=>m&&m.pubkey)),T10=Array.isArray(th)?th.filter(h=>h&&!mp.has(h.address)&&!mp.has(h.owner)).slice(0,10).reduce((a,h)=>a+(+(h.pct??h.percentage)||0),0):0;let lpLocked=null;const mk=(j.markets||[])[0];
    if(mk&&mk.lp)lpLocked=mk.lp.lpLockedPct??mk.lp.locked_pct??(mk.lp.lpLocked!=null?(mk.lp.lpLocked?100:0):null);
-   RC[addr]={t:Date.now(),score:j.score_normalised??j.score??null,risks,devPct,lpLocked,top10:T10>0?T10:null};sv('rc',RC);draw()
-  }).catch(()=>{RC[addr]={t:Date.now(),score:null,risks:[],devPct:null,lpLocked:null}}).finally(()=>RCbusy.delete(addr))}
+   const hp=Array.isArray(th)?th.filter(h=>h&&!mp.has(h.address)&&!mp.has(h.owner)):[],p0=h=>+(h.pct??h.percentage)||0,top1=hp.length?Math.max(...hp.map(p0)):null,insPct=hp.filter(h=>h.insider).reduce((a,h)=>a+p0(h),0),tf=+(j.transferFee&&j.transferFee.pct)||0;
+   RC[addr]={t:Date.now(),score:j.score_normalised??j.score??null,risks,devPct,lpLocked,top10:T10>0?T10:null,top1,insPct,rugged:j.rugged===true,mint:!!(j.mintAuthority||(j.token&&j.token.mintAuthority)),freeze:!!(j.freezeAuthority||(j.token&&j.token.freezeAuthority)),tf,holders:j.totalHolders!=null?+j.totalHolders:null};sv('rc',RC);draw()
+  }).catch(()=>{RC[addr]={t:Date.now()-RCT+3e4,score:null,risks:[],devPct:null,lpLocked:null}}).finally(()=>RCbusy.delete(addr))}
  return c||null}
 function rcFlags(rc){const out=new Set();for(const name of rc.risks||[]){if(/holder|concentrat|whale/i.test(name))out.add('WHALE');else if(/mint/i.test(name))out.add('MINT RISK');else if(/freeze/i.test(name))out.add('FREEZE RISK');else if(/liquidity|lp\b/i.test(name))out.add('LP RISK');else out.add('RISIKO')}
  if(rc.devPct!=null&&rc.devPct>=(C.devMax||15))out.add('DEV HÄLT '+Math.round(rc.devPct)+'%');
@@ -156,6 +159,17 @@ function botOk(r){const L=PT.done.slice(0,2);
  if(r.flags.some(f=>/^RISIKO|WHALE|MINT|FREEZE|LP RISK|LP UNLOCKED|HONEYPOT|DEV HÄLT|COPYCAT|DÜNNE LIQ|VERKÄUFER|DUMP|RC OFFLINE/.test(f)))return'Rug-Flag';
  if(r.chain=='solana'){const g=r.rug;if(!g||g.score==null)return'Rug-Daten fehlen';if(g.top10!=null&&g.top10>PTC.top10)return'Top-10-Holder';if(g.lpLocked!=null&&g.lpLocked<50)return'LP nicht gesperrt'}
  return''}
+function rugOk(r){
+ if(r.flags.some(f=>/^RISIKO|WHALE|MINT|FREEZE|LP RISK|LP UNLOCKED|HONEYPOT|DEV HÄLT|COPYCAT|DÜNNE LIQ|VERKÄUFER|DUMP|RC OFFLINE|LIQ-DROP/.test(f)))return'Rug-Flag';
+ if(r.age!=null&&r.age<PTC.minAge)return'zu jung';
+ if(r.liq<PTC.minLiq)return'Liquidität';
+ if(r.liq>0&&r.mc/r.liq>PTC.maxMcLiq)return'dünne Liquidität';
+ if(r.chain=='solana'){const g=r.rug;if(!g||g.score==null)return'Rug-Daten fehlen';
+  if(g.rugged)return'Als Rug markiert';if(g.mint)return'Mint aktiv';if(g.freeze)return'Freeze aktiv';if(g.tf>PTC.tfee)return'Transfer-Steuer';
+  if(g.top10!=null&&g.top10>PTC.top10)return'Top-10-Holder';if(g.top1!=null&&g.top1>PTC.top1)return'Ein Wallet zu groß';
+  if(g.insPct>PTC.ins)return'Insider-Holder';if(g.holders!=null&&g.holders<PTC.holdMin)return'Zu wenige Holder';
+  if(g.lpLocked!=null&&g.lpLocked<50)return'LP nicht gesperrt'}
+ return''}
 function apiw(){let w=document.getElementById('apiw');if(!w){w=document.createElement('div');w.id='apiw';w.style.cssText='display:none;position:fixed;left:8px;right:8px;bottom:8px;z-index:99;padding:10px 12px;border-radius:10px;background:#ff5d73;color:#fff;font-weight:700;text-align:center';w.textContent='⚠ Keine Live-Daten – Datenquelle antwortet nicht';document.body.appendChild(w)}w.style.display=bad>=3?'block':'none'}
 function ptExtra(){const pd=PT.done;if(!pd.length)return'';const f=n=>(n>=0?'+':'')+n.toFixed(3),su=x=>x.reduce((a,d)=>a+d.sol,0);
  const rows=[['55–59',55,60],['60–64',60,65],['65+',65,101]].map(([n,a,b])=>{const x=pd.filter(d=>d.score>=a&&d.score<b);return x.length?'<small>Score '+n+': '+x.length+' Trades · '+Math.round(x.filter(d=>d.sol>0).length/x.length*100)+'% Treffer · '+f(su(x))+' SOL</small>':''}).join('<br>');
@@ -172,7 +186,7 @@ function ptTime(pd){const f=n=>(n>=0?'+':'')+n.toFixed(3),g=(l,a)=>a.length?l+' 
 async function wSync(force){if(!C.botUrl||!C.botKey)return;const ks=Object.keys(PT.open).sort().join(),now=Date.now();if(!force&&ks==wSync.k&&(now-(wSync.t||0)<3e5||!ks))return;wSync.k=ks;wSync.t=now;
  try{await fetch(C.botUrl.replace(/\/$/,'')+'/sync',{method:'POST',headers:{'x-key':C.botKey,'content-type':'application/json'},body:JSON.stringify({open:PT.open,cfg:PTC})})}catch(e){}}
 async function wPull(){if(!C.botUrl||!C.botKey)return;try{const r=await fetch(C.botUrl.replace(/\/$/,'')+'/state',{headers:{'x-key':C.botKey}});if(!r.ok)return;const w=await r.json();let ch=0;
- for(const d of w.done||[]){if(PT.done.some(x=>x.addr+x.t0==d.addr+d.t0))continue;PT.done.unshift(d);delete PT.open[d.chain+':'+d.addr];ch=1}
+ for(const d of w.done||[]){if(PT.done.some(x=>x.addr+x.t0==d.addr+d.t0)||d.t0<(PT.rs||0))continue;PT.done.unshift(d);delete PT.open[d.chain+':'+d.addr];ch=1}
  for(const k in w.open||{}){const t=PT.open[k],o=w.open[k];if(!t)continue;t.peak=Math.max(t.peak||0,o.peak||0);t.lo=Math.min(t.lo||t.mc0,o.lo||t.mc0);if((o.tk||[]).length>(t.tk||[]).length)t.tk=o.tk;t.x=t.x||{};for(const a in o.x||{})if(t.x[a]==null&&o.x[a]!=null)t.x[a]=o.x[a]}
  if(ch){PT.done.sort((a,b)=>b.t1-a.t1);PT.done=PT.done.slice(0,150)}sv('pt',PT);if(ch)draw()}catch(e){}}
 setInterval(wPull,2e4);setInterval(wSync,6e4);
@@ -183,6 +197,7 @@ function ptTick(best){let n=0;for(const k of Object.keys(PT.open)){const t=PT.op
   if(mc>0){t.peak=Math.max(t.peak||t.mc0,mc);t.lo=Math.min(t.lo||t.mc0,mc);const X=t.x||(t.x={});for(const a of [['FIX20',.2,.2],['FIX30',.3,.15]])if(X[a[0]]==null){if(pnl>=a[1])X[a[0]]=a[1];else if(pnl<=-a[2])X[a[0]]=pnl}const K=t.tk||(t.tk=TK(t).slice());for(const st of PTC.stages)if(pnl>=st[0]&&!K.some(x=>x.p==st[0]))K.push({p:st[0],f:st[1]})}
   const lq=p&&p.liquidity?+p.liquidity.usd||0:0,fl=Math.max(PTC.floor,2*(PTC.fee+(t.slip||0))+.03),pk=(t.peak||t.mc0)/t.mc0-1,m5=p&&p.priceChange?+p.priceChange.m5||0:0,trl=pk>=.4?PTC.tr2:PTC.tr,armed=pk>=PTC.arm;let w=null;
   if(mc>0&&pnl>=PTC.tp)w='TP';else if(mc>0&&pnl<=-PTC.sl)w='SL';
+  if(!w&&lq>0){t.lqm=Math.max(t.lqm||t.liq0||0,lq);if(lq<t.lqm*(1-PTC.rug)&&pnl<0)w='RUG'}
   if(w){ptClose(k,pnl,w);n++}}return n}
 async function ptFast(){const o=Object.values(PT.open);if(!o.length||ptFast.b)return;ptFast.b=1;try{const by={},best={};o.forEach(t=>(by[t.chain]=by[t.chain]||[]).push(t.addr));for(const c in by)for(let i=0;i<by[c].length;i+=30){const ch=by[c].slice(i,i+30);for(const p of await J('/tokens/v1/'+c+'/'+ch.join(','))){if(!ch.includes(p.baseToken.address))continue;const key=c+':'+p.baseToken.address,l=(p.liquidity||{}).usd||0;if(!best[key]||l>((best[key].liquidity||{}).usd||0))best[key]=p}}const n=ptTick(best);sv('pt',PT);if(n)draw()}catch(e){}ptFast.b=0}
 setInterval(ptFast,2500);document.addEventListener('visibilitychange',()=>{if(!document.hidden)ptFast()});
@@ -196,7 +211,7 @@ function ping(r,tag,kind){const NOW=Date.now();FD.unshift({ts:NOW,t:new Date(NOW
   const f=()=>{try{new Notification(tag,{body:b})}catch(e){}};navigator.serviceWorker?navigator.serviceWorker.ready.then(g=>g.showNotification(tag,{body:b})).catch(f):f()}
  if(C.tgToken&&C.tgChat&&(r.score>=(+C.tgMin||0)||tag.startsWith('⭐'))){const txt='🕐 '+tm(NOW)+' Uhr · '+dl(NOW)+'\n'+tag+' '+r.sym+' ('+CHN[r.chain]+')\nMC '+F(r.mc)+' · Score '+r.score+' · Liq '+F(r.liq)+'\nhttps://dexscreener.com/'+r.chain+'/'+r.addr+'\n'+r.addr;
   fetch('https://api.telegram.org/bot'+C.tgToken+'/sendMessage',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({chat_id:C.tgChat,text:txt,reply_markup:{inline_keyboard:[[{text:'Chart',url:'https://dexscreener.com/'+r.chain+'/'+r.addr},{text:'RugCheck',url:'https://rugcheck.xyz/tokens/'+r.addr}]]}})}).catch(()=>{})}}
-let AD=[],BO=new Set(),FT=0,SPT=0,SVT=0,VPT=0,LT=0,SCANNING=false,VH={},LS=0;
+let LQH={},AD=[],BO=new Set(),FT=0,SPT=0,SVT=0,VPT=0,LT=0,SCANNING=false,VH={},LS=0;
 let BWR=null,BWT=ld('bwt',0)||Date.now();
 const WINDOW_MS=120000;
 async function scan(){if(SCANNING)return;SCANNING=true;try{
@@ -221,13 +236,18 @@ async function scan(){if(SCANNING)return;SCANNING=true;try{
   if(age>=216e5){const gain=t.peak/t.mc0-1,win=gain>=.2;STZ.total++;if(win)STZ.wins++;else STZ.losses++;STZH.unshift({sym:t.sym,chain:t.chain,gain,win,score:t.score??null,g1:t.m1!=null?t.m1/t.mc0-1:null,g6:p?(p.marketCap||p.fdv||0)/t.mc0-1:null,fl:t.fl||[],t:Date.now()});STZH=STZH.slice(0,60);delete TR[k];stzDirty=true}}
  if(stzDirty){sv('stz',STZ);sv('stzh',STZH)}sv('tr',TR);
  const spg=Date.now()-SPT>15e3;if(spg)SPT=Date.now();R=Object.values(best).map(p=>st(p,bo));
- {const cand=R.filter(x=>x.score>=(+C.score||55)&&x.liq>=(+C.liq||0)).sort((a,b)=>b.score-a.score)[0];
+ {const now=Date.now(),symCount={};R.forEach(r=>{const s=r.sym.toUpperCase();symCount[s]=(symCount[s]||0)+1});
+  R.forEach(r=>{if(symCount[r.sym.toUpperCase()]>=3){r.flags.push('COPYCAT');r.score=Math.max(0,r.score-10)}
+   const h=LQH[r.key]=LQH[r.key]||[];h.push([now,r.liq]);while(h.length&&now-h[0][0]>3e5)h.shift();
+   const mx=Math.max(...h.map(x=>x[1]));if(h.length>=3&&mx>0&&r.liq<mx*.75){r.flags.push('LIQ-DROP');r.score=Math.max(0,r.score-25)}});
+  for(const k in LQH)if(!best[k]&&now-LQH[k][LQH[k].length-1][0]>3e5)delete LQH[k]}
+ {const ok=x=>x.score>=(+C.score||55)&&x.liq>=(+C.liq||0)&&!rugOk(x);
+  const cand=R.filter(ok).sort((a,b)=>b.score-a.score)[0];
   if(cand&&(!BWR||cand.score>BWR.score))BWR=cand;
   if(Date.now()-BWT>=WINDOW_MS){
-   if(BWR&&!PT.open[BWR.key]&&ptStats().free>=PTC.size-1e-9)ptBuy(BWR);
+   const f=BWR&&R.find(x=>x.key==BWR.key);
+   if(f&&ok(f)&&f.mc>=BWR.mc*.9&&!PT.open[f.key]&&ptStats().free>=PTC.size-1e-9)ptBuy(f);
    BWR=null;BWT=Date.now();sv('bwt',BWT)}}
- {const symCount={};R.forEach(r=>{const s=r.sym.toUpperCase();symCount[s]=(symCount[s]||0)+1});
-  R.forEach(r=>{if(symCount[r.sym.toUpperCase()]>=3){r.flags.push('COPYCAT');r.score=Math.max(0,r.score-10)}})}
  R.forEach(r=>{if(r.mc>=5e4&&!(LK[r.key]&&LK[r.key].length))r.flags.push('KEINE SOCIALS')});
  {const spgV=Date.now()-VPT>15e3;if(spgV)VPT=Date.now();
   R.forEach(r=>{const v=VH[r.key]=VH[r.key]||[];
@@ -306,7 +326,7 @@ function draw(){document.body.classList.toggle('sb',view!='home');document.query
  renderFeed();R.forEach(r=>r.nw=false)}
 document.onclick=e=>{if(e.target.id=='mo'||e.target.closest('[data-m]')){$('#mo').style.display='none';return}
  if(e.target.id=='cpb'){CP=!CP;sv('cp',CP);draw();return}
- if(e.target.id=='ptr'&&confirm('Simulation zurücksetzen? Alle Testtrades werden gelöscht.')){PT={open:{},done:[]};sv('pt',PT)}{const pt=e.target.closest('[data-pt]');if(pt&&!e.target.closest('a')){const k=pt.dataset.pt;PTX.has(k)?PTX.delete(k):PTX.add(k)}}const vt=e.target.closest('[data-v]');if(vt){if(vt.dataset.v=='set'){view='scan';const dd=document.querySelector('details');if(dd){dd.open=true;setTimeout(()=>dd.scrollIntoView({behavior:'smooth'}),50)}}else view=vt.dataset.v}const d=(e.target.closest('[data-c],[data-s],[data-z],[data-k],[data-p],[data-ch]')||e.target).dataset;if(d.k){dir=d.k==key?-dir:(d.k=='age'?1:-1);key=d.k}
+ if(e.target.id=='ptr'&&confirm('Simulation zurücksetzen? Alle Testtrades werden gelöscht.')){PT={open:{},done:[],rs:Date.now()};sv('pt',PT)}{const pt=e.target.closest('[data-pt]');if(pt&&!e.target.closest('a')){const k=pt.dataset.pt;PTX.has(k)?PTX.delete(k):PTX.add(k)}}const vt=e.target.closest('[data-v]');if(vt){if(vt.dataset.v=='set'){view='scan';const dd=document.querySelector('details');if(dd){dd.open=true;setTimeout(()=>dd.scrollIntoView({behavior:'smooth'}),50)}}else view=vt.dataset.v}const d=(e.target.closest('[data-c],[data-s],[data-z],[data-k],[data-p],[data-ch]')||e.target).dataset;if(d.k){dir=d.k==key?-dir:(d.k=='age'?1:-1);key=d.k}
  if(d.s){W.has(d.s)?W.delete(d.s):W.add(d.s);sv('w',[...W])}
  if(d.z){SNZ[d.z]?delete SNZ[d.z]:SNZ[d.z]=Date.now()+432e5;sv('snz',SNZ)}
  if(d.ch){CE.includes(d.ch)?CE=CE.filter(c=>c!=d.ch):CE.push(d.ch);if(!CE.length)CE=[...CHAINS];sv('ce',CE)}
@@ -341,6 +361,6 @@ $('#impf').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileR
  r.readAsText(f)};
 document.addEventListener('touchstart',()=>{LT=Date.now()},{passive:true});
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
-(async function lp(){try{await scan()}catch(e){bad++;apiw()}nxt=Date.now()+Math.min(3000*(1+bad*2),6e4);setTimeout(lp,nxt-Date.now())})();
-setInterval(()=>{const stale=bad||(LS&&Date.now()-LS>15e3);$('#cd').textContent=bad?'Verbindung langsam …':stale?'Letzter Scan vor '+Math.round((Date.now()-LS)/1e3)+' s ⚠':'Scan alle 3 s';$('#dt').className='dot'+(stale?' e':'');if($('#hbd'))$('#hbd').textContent=stale?'● VERBINDUNG PRÜFEN':'● BOT AKTIV'},1000);
+(async function lp(){try{await scan()}catch(e){bad++;apiw()}nxt=Date.now()+Math.min(1000*(1+bad*2),6e4);setTimeout(lp,nxt-Date.now())})();
+setInterval(()=>{const stale=bad||(LS&&Date.now()-LS>15e3);$('#cd').textContent=bad?'Verbindung langsam …':stale?'Letzter Scan vor '+Math.round((Date.now()-LS)/1e3)+' s ⚠':'Scan jede Sekunde';$('#dt').className='dot'+(stale?' e':'');if($('#hbd'))$('#hbd').textContent=stale?'● VERBINDUNG PRÜFEN':'● BOT AKTIV'},1000);
 </script>
