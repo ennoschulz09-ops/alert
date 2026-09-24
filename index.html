@@ -75,7 +75,7 @@ const inQuiet=()=>{if(C.quietFrom===''||C.quietTo===''||C.quietFrom==null||C.qui
 let LK={},view='dash',LE='',R=[],FD=ld('fd',[]),SP={},KN=null,bad=0,nxt=0,key='score',dir=-1;
 let W=new Set(ld('w',[])),SM=ld('s2',null);if(!SM){SM={};(ld('s',[])||[]).forEach(k=>SM[k]=Date.now())}
 let Hh=ld('h',{}),RC=ld('rc',{}),RCbusy=new Set(),CE=ld('ce',null);if(!CE)CE=[...CHAINS];
-let PT=ld('pt',{open:{},done:[]}),PTC={size:.1,tp:.2,sl:.2,min:55,fee:.02,start:2,arm:.15,cap:1.5,tr:.12,tr2:.15,floor:.08,stages:[[.25,1/3],[.6,1/3]],maxOpen:3,dayLoss:.3,minAge:.5,minLiq:15e3,maxRun:40,top10:50};
+let PT=ld('pt',{open:{},done:[]}),PTC={size:.1,tp:.2,sl:.2,min:55,fee:.01,start:2,arm:.2,cap:1.5,tr:.12,tr2:.15,floor:.08,stages:[[.25,1/3],[.6,1/3]],maxOpen:3,maxRun1:120,maxMcLiq:30,confirm:45e3,rug:.4,stagMin:90,stagBand:.1,dayLoss:.3,minAge:.5,minLiq:15e3,maxRun:40,top10:50};
 let TR=ld('tr',{}),STZ=ld('stz',{wins:0,losses:0,total:0}),STZH=ld('stzh',[]);
 let WV=ld('wv',{}),CP=false,SNZ=ld('snz',{});
 const fl=r=>{const f=[];if(r.age!=null&&r.age<.25)f.push('BRANDNEU');if(r.mc&&r.liq/r.mc<.03)f.push('DÜNNE LIQ');if(r.b+r.s>=20&&r.ratio<.4)f.push('VERKÄUFER');if(r.c1<-30)f.push('DUMP');if(r.boost)f.push('BOOST');if(r.b>=10&&r.s==0&&r.v1>1000)f.push('MÖGL. HONEYPOT');return f};
@@ -116,7 +116,7 @@ const sol=n=>String(+n.toFixed(3)).replace('.',',');
 function ptStats(){const po=Object.values(PT.open),pd=PT.done,v=t=>PTC.size*(1+bp(t,t.last/t.mc0-1))*(1-PTC.fee-(t.slip||0))/(1+PTC.fee+(t.slip||0)),real=pd.reduce((a,d)=>a+d.sol,0),ov=po.reduce((a,t)=>a+v(t),0),os=po.length*PTC.size,gw=pd.filter(d=>d.sol>0),vl=pd.filter(d=>d.sol<=0);
  return{po,pd,v,real,ov,os,free:PTC.start+real-os,gain:gw.reduce((a,d)=>a+d.sol,0),gn:gw.length,loss:vl.reduce((a,d)=>a+d.sol,0),ln:vl.length}}
 const PTX=new Set();
-function renderDash(){const s=ptStats(),tot=s.real+s.ov-s.os,cl=x=>x>=0?'var(--g)':'#ff5d73',sg=n=>(n>=0?'+':'−')+sol(Math.abs(n)),WY={TP:'Take-Profit',SL:'Stop-Loss',ZEIT:'Zeitausstieg',TRAIL:'Trailing-Stop',MAX:'Max-Gewinn',MOM:'Momentum-Ausstieg'},D0=new Date().setHours(0,0,0,0),W7=Date.now()-6048e5,sum=f=>s.pd.filter(d=>d.t1>=f).reduce((a,d)=>a+d.sol,0),bw=[...s.pd].sort((a,b)=>b.sol-a.sol),eq=[...(PT.eq||[]),[Date.now(),PTC.start+tot]];
+function renderDash(){const s=ptStats(),tot=s.real+s.ov-s.os,cl=x=>x>=0?'var(--g)':'#ff5d73',sg=n=>(n>=0?'+':'−')+sol(Math.abs(n)),WY={TP:'Take-Profit',SL:'Stop-Loss',ZEIT:'Zeitausstieg',TRAIL:'Trailing-Stop',MAX:'Max-Gewinn',MOM:'Momentum-Ausstieg',RUG:'Liquidität weg',FLAU:'Kein Momentum'},D0=new Date().setHours(0,0,0,0),W7=Date.now()-6048e5,sum=f=>s.pd.filter(d=>d.t1>=f).reduce((a,d)=>a+d.sol,0),bw=[...s.pd].sort((a,b)=>b.sol-a.sol),eq=[...(PT.eq||[]),[Date.now(),PTC.start+tot]];
  let ch='';if(eq.length>2){const vs=eq.map(e=>e[1]),lo=Math.min(PTC.start,...vs),hi=Math.max(PTC.start,...vs),a=eq[0][0],dt=(eq[eq.length-1][0]-a)||1,Y=v=>(76-(v-lo)/((hi-lo)||1)*70).toFixed(1);
   ch=`<svg viewBox="0 0 300 80" preserveAspectRatio="none" style="width:100%;height:90px;margin:10px 0"><line x1="0" x2="300" y1="${Y(PTC.start)}" y2="${Y(PTC.start)}" style="stroke:#ffffff33" stroke-dasharray="4"/><polyline fill="none" vector-effect="non-scaling-stroke" style="stroke:${cl(tot)};stroke-width:2" points="${eq.map(e=>((e[0]-a)/dt*300).toFixed(1)+','+Y(e[1])).join(' ')}"/></svg>`}
  const rows=[...s.po.map(t=>({id:t.sym+t.t0,t0:t.t0,sym:t.sym,open:1,val:s.v(t),t,pnl:bp(t,t.last/t.mc0-1)})),...s.pd.slice(0,40).map(d=>({id:d.sym+d.t0,t0:d.t1,sym:d.sym,open:0,val:PTC.size+d.sol,t:d,pnl:d.pnl,why:WY[d.why]||d.why}))].sort((a,b)=>b.open-a.open||b.t0-a.t0).map(o=>{const pl=o.val-PTC.size,t=o.t,x=PTX.has(o.id),pos=Math.max(0,Math.min(100,(o.pnl+PTC.sl)/(PTC.tp+PTC.sl)*100));
@@ -130,7 +130,7 @@ function botOk(r){const L=PT.done.slice(0,2);
  if(Object.keys(PT.open).length>=PTC.maxOpen)return'Max. offen';
  if(r.age!=null&&r.age<PTC.minAge)return'zu jung';
  if(r.liq<PTC.minLiq)return'Liquidität';
- if((r.c5||0)>=PTC.maxRun)return'schon gelaufen';
+ if((r.c5||0)>=PTC.maxRun)return'schon gelaufen';if((r.c1||0)>=PTC.maxRun1)return'zu spät (1h)';if(r.liq>0&&r.mc/r.liq>PTC.maxMcLiq)return'dünne Liquidität';
  if(r.flags.some(f=>/^RISIKO|WHALE|MINT|FREEZE|LP RISK|LP UNLOCKED|HONEYPOT|DEV HÄLT|COPYCAT|DÜNNE LIQ|VERKÄUFER|DUMP|RC OFFLINE/.test(f)))return'Rug-Flag';
  if(r.chain=='solana'){const g=r.rug;if(!g||g.score==null)return'Rug-Daten fehlen';if(g.top10!=null&&g.top10>PTC.top10)return'Top-10-Holder';if(g.lpLocked!=null&&g.lpLocked<50)return'LP nicht gesperrt'}
  return''}
@@ -154,17 +154,20 @@ async function wPull(){if(!C.botUrl||!C.botKey)return;try{const r=await fetch(C.
  for(const k in w.open||{}){const t=PT.open[k],o=w.open[k];if(!t)continue;t.peak=Math.max(t.peak||0,o.peak||0);t.lo=Math.min(t.lo||t.mc0,o.lo||t.mc0);if((o.tk||[]).length>(t.tk||[]).length)t.tk=o.tk;t.x=t.x||{};for(const a in o.x||{})if(t.x[a]==null&&o.x[a]!=null)t.x[a]=o.x[a]}
  if(ch){PT.done.sort((a,b)=>b.t1-a.t1);PT.done=PT.done.slice(0,150)}sv('pt',PT);if(ch)draw()}catch(e){}}
 setInterval(wPull,2e4);setInterval(wSync,6e4);
+function ptBuy(r){PT.open[r.key]={sym:r.sym,chain:r.chain,addr:r.addr,mc0:r.mc,last:r.mc,t0:Date.now(),score:r.score,peak:r.mc,liq0:r.liq,slip:(r.liq<2e4?.05:r.liq<5e4?.03:.015)+Math.min(.03,Math.max(0,r.c5||0)*.0005),x:{FIX20:null,FIX30:null}};sv('pt',PT);wSync(1)}
+function ptConfirm(){const P=PT.pend;if(!P)return;for(const k of Object.keys(P)){const p=P[k];if(Date.now()-p.t<PTC.confirm)continue;delete P[k];const r=R.find(x=>x.key==k),w=!r?'Bestätigung':PT.open[k]?'':(r.mc<p.mc*.95||r.mc>p.mc*1.12||(r.c5||0)<-3)?'Bestätigung':botOk(r)||(ptStats().free<PTC.size-1e-9?'Kein Kapital':'');
+ if(w){PT.sk=PT.sk||{};PT.sk[w]=(PT.sk[w]||0)+1;sv('pt',PT)}else if(r&&!PT.open[k])ptBuy(r);else sv('pt',PT)}}
 function ptTick(best){let n=0;for(const k of Object.keys(PT.open)){const t=PT.open[k],p=best[k],mc=p?(p.marketCap||p.fdv||0):0;if(mc>0)t.last=mc;const pnl=t.last/t.mc0-1;
   if(mc>0){t.peak=Math.max(t.peak||t.mc0,mc);t.lo=Math.min(t.lo||t.mc0,mc);const X=t.x||(t.x={});for(const a of [['FIX20',.2,.2],['FIX30',.3,.15]])if(X[a[0]]==null){if(pnl>=a[1])X[a[0]]=a[1];else if(pnl<=-a[2])X[a[0]]=pnl}const K=t.tk||(t.tk=TK(t).slice());for(const st of PTC.stages)if(pnl>=st[0]&&!K.some(x=>x.p==st[0]))K.push({p:st[0],f:st[1]})}
-  const pk=(t.peak||t.mc0)/t.mc0-1,m5=p&&p.priceChange?+p.priceChange.m5||0:0,trl=pk>=.4?PTC.tr2:PTC.tr,armed=pk>=PTC.arm;let w=null;
-  if(mc>0&&pnl>=PTC.cap)w='MAX';else if(mc>0&&armed&&mc<=Math.max(t.peak*(1-trl),t.mc0*(1+PTC.floor)))w='TRAIL';else if(mc>0&&TK(t).length>1&&pnl<=.2)w='TRAIL';else if(mc>0&&TK(t).length&&pnl<=.03)w='TRAIL';else if(mc>0&&armed&&m5<=-10)w='MOM';else if(mc>0&&pnl<=-PTC.sl)w='SL';else if(Date.now()-t.t0>=432e5)w='ZEIT';
+  const lq=p&&p.liquidity?+p.liquidity.usd||0:0,fl=Math.max(PTC.floor,2*(PTC.fee+(t.slip||0))+.03),pk=(t.peak||t.mc0)/t.mc0-1,m5=p&&p.priceChange?+p.priceChange.m5||0:0,trl=pk>=.4?PTC.tr2:PTC.tr,armed=pk>=PTC.arm;let w=null;
+  if(mc>0&&pnl>=PTC.cap)w='MAX';else if(mc>0&&t.liq0&&lq>0&&lq<t.liq0*PTC.rug)w='RUG';else if(mc>0&&armed&&mc<=Math.max(t.peak*(1-trl),t.mc0*(1+fl)))w='TRAIL';else if(mc>0&&TK(t).length>1&&pnl<=Math.max(.2,fl))w='TRAIL';else if(mc>0&&TK(t).length&&pnl<=fl)w='TRAIL';else if(mc>0&&armed&&m5<=-10)w='MOM';else if(mc>0&&pnl<=-PTC.sl)w='SL';else if(Date.now()-t.t0>=PTC.stagMin*6e4&&pk<PTC.arm&&Math.abs(pnl)<=PTC.stagBand&&!TK(t).length)w='FLAU';else if(Date.now()-t.t0>=432e5)w='ZEIT';
   if(w){ptClose(k,pnl,w);n++}}return n}
 async function ptFast(){const o=Object.values(PT.open);if(!o.length||ptFast.b)return;ptFast.b=1;try{const by={},best={};o.forEach(t=>(by[t.chain]=by[t.chain]||[]).push(t.addr));for(const c in by)for(let i=0;i<by[c].length;i+=30){const ch=by[c].slice(i,i+30);for(const p of await J('/tokens/v1/'+c+'/'+ch.join(','))){if(!ch.includes(p.baseToken.address))continue;const key=c+':'+p.baseToken.address,l=(p.liquidity||{}).usd||0;if(!best[key]||l>((best[key].liquidity||{}).usd||0))best[key]=p}}const n=ptTick(best);sv('pt',PT);if(n)draw()}catch(e){}ptFast.b=0}
 setInterval(ptFast,2500);document.addEventListener('visibilitychange',()=>{if(!document.hidden)ptFast()});
-function ptClose(k,pnl,why){const t=PT.open[k],xs=(why=='SL'||why=='MOM')?.03:0,nt=q=>(1+q)*(1-PTC.fee-(t.slip||0)-xs)/(1+PTC.fee+(t.slip||0))-1,net=TK(t).reduce((a,x)=>a+x.f*nt(x.p),0)+(1-TK(t).reduce((a,x)=>a+x.f,0))*nt(pnl),alt={};for(const a in (t.x||{}))alt[a]=nt(t.x[a]==null?pnl:t.x[a]);PT.done.unshift({alt,hi:(t.peak||t.mc0)/t.mc0-1,lo:(t.lo||t.mc0)/t.mc0-1,sym:t.sym,chain:t.chain,addr:t.addr,score:t.score,mc0:t.mc0,mc1:t.last,pnl:bp(t,pnl),net,sol:PTC.size*net,why,t0:t.t0,t1:Date.now()});PT.done=PT.done.slice(0,150);delete PT.open[k];sv('pt',PT)}
+function ptClose(k,pnl,why){const t=PT.open[k],xs=(why=='SL'||why=='MOM'||why=='RUG')?.02:0,nt=q=>(1+q)*(1-PTC.fee-(t.slip||0)-xs)/(1+PTC.fee+(t.slip||0))-1,net=TK(t).reduce((a,x)=>a+x.f*nt(x.p),0)+(1-TK(t).reduce((a,x)=>a+x.f,0))*nt(pnl),alt={};for(const a in (t.x||{}))alt[a]=nt(t.x[a]==null?pnl:t.x[a]);PT.done.unshift({alt,hi:(t.peak||t.mc0)/t.mc0-1,lo:(t.lo||t.mc0)/t.mc0-1,sym:t.sym,chain:t.chain,addr:t.addr,score:t.score,mc0:t.mc0,mc1:t.last,pnl:bp(t,pnl),net,sol:PTC.size*net,why,t0:t.t0,t1:Date.now()});PT.done=PT.done.slice(0,150);delete PT.open[k];sv('pt',PT)}
 function ping(r,tag,kind){const NOW=Date.now();FD.unshift({ts:NOW,t:new Date(NOW).toTimeString().slice(0,5),tag,sym:r.sym,addr:r.addr,chain:r.chain,key:r.key,mc:r.mc,score:r.score});FD=FD.slice(0,120);sv('fd',FD);
  if(tag=='🔔 SIGNAL'&&r.score>=PTC.min&&!PT.open[r.key]){const w=botOk(r);if(w){PT.sk=PT.sk||{};PT.sk[w]=(PT.sk[w]||0)+1;sv('pt',PT)}}
- if(tag=='🔔 SIGNAL'&&r.score>=PTC.min&&!PT.open[r.key]&&botOk(r)==''&&ptStats().free>=PTC.size-1e-9){PT.open[r.key]={sym:r.sym,chain:r.chain,addr:r.addr,mc0:r.mc,last:r.mc,t0:Date.now(),score:r.score,peak:r.mc,slip:(r.liq<2e4?.06:r.liq<5e4?.03:.015)+Math.min(.08,Math.max(0,r.c5||0)*.0015),x:{FIX20:null,FIX30:null}};sv('pt',PT);wSync(1)}
+ if(tag=='🔔 SIGNAL'&&r.score>=PTC.min&&!PT.open[r.key]&&botOk(r)==''){PT.pend=PT.pend||{};if(!PT.pend[r.key]){PT.pend[r.key]={t:Date.now(),mc:r.mc};sv('pt',PT)}}
  if(tag=='🔔 SIGNAL'&&!TR[r.key]){TR[r.key]={t0:Date.now(),mc0:r.mc,peak:r.mc,chain:r.chain,addr:r.addr,sym:r.sym,score:r.score,fl:r.flags.slice(),m1:null};sv('tr',TR)}
  navigator.vibrate&&navigator.vibrate([200,100,200]);beep(kind);
  if('Notification' in window&&Notification.permission=='granted'){const b='🕐 '+tm(NOW)+' · '+r.sym+' · MC '+F(r.mc)+' · Score '+r.score;
@@ -188,7 +191,7 @@ async function scan(){if(SCANNING)return;SCANNING=true;try{
   for(let i=0;i<list.length;i+=30)try{const ch=list.slice(i,i+30);for(const p of await J('/tokens/v1/'+chain+'/'+ch.join(','))){if(!ch.includes(p.baseToken.address))continue;p._chain=chain;const key=chain+':'+p.baseToken.address,l=(p.liquidity||{}).usd||0;if(!best[key]||l>((best[key].liquidity||{}).usd||0))best[key]=p}}catch(e){}}
  let stzDirty=false;
  ptTick(best);
- {const q=ptStats(),v=PTC.start+q.real+q.ov-q.os;PT.eq=PT.eq||[];const L=PT.eq[PT.eq.length-1];if(!L||Date.now()-L[0]>=3e5)PT.eq.push([Date.now(),+v.toFixed(4)]);PT.eq=PT.eq.slice(-1000)}dsum();
+ {const q=ptStats(),v=PTC.start+q.real+q.ov-q.os;PT.eq=PT.eq||[];const L=PT.eq[PT.eq.length-1];if(!L||Date.now()-L[0]>=3e5)PT.eq.push([Date.now(),+v.toFixed(4)]);PT.eq=PT.eq.slice(-1000)}dsum();ptConfirm();
  sv('pt',PT);
  for(const k of trAll){const t=TR[k],p=best[k],age=Date.now()-t.t0;if(p&&age<216e5){const mc=p.marketCap||p.fdv||0;if(mc>t.peak)t.peak=mc;if(t.m1==null&&age>=36e5)t.m1=mc}
   if(age>=216e5){const gain=t.peak/t.mc0-1,win=gain>=.2;STZ.total++;if(win)STZ.wins++;else STZ.losses++;STZH.unshift({sym:t.sym,chain:t.chain,gain,win,score:t.score??null,g1:t.m1!=null?t.m1/t.mc0-1:null,g6:p?(p.marketCap||p.fdv||0)/t.mc0-1:null,fl:t.fl||[],t:Date.now()});STZH=STZH.slice(0,60);delete TR[k];stzDirty=true}}
