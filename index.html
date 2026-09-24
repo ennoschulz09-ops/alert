@@ -67,10 +67,10 @@ const tm=ts=>new Date(ts).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-d
 const al2=x=>FD.find(f=>f.key==x.key&&f.ts);
 const ld=(k,d)=>{try{return JSON.parse(localStorage[k])}catch(e){return d}},sv=(k,v)=>{try{localStorage[k]=JSON.stringify(v)}catch(e){}};
 const CHAINS=['solana'],CHN={solana:'SOL'};
-const CF=[['liq','Min. Liquidität $'],['vol','Min. Vol 1h $'],['mmin','Min. MCap $'],['mmax','Max. MCap $'],['ratio','Min. Käuferanteil (0-1)'],['score','Min. Score'],['cooldown','Cooldown (Minuten)'],['watchPct','Watchlist-Alarm ab % Bewegung'],['devMax','Max. Dev-Wallet-Anteil %'],['quietFrom','Ruhe ab Stunde (0-23, leer=aus)'],['quietTo','Ruhe bis Stunde (0-23)'],['sound','Ton (1/0)'],['minAge','Neu-Token-Sperre (Min. nach Launch)'],['tgMin','Telegram ab Score'],['tgToken','Telegram Bot-Token','text'],['tgChat','Telegram Chat-ID','text'],['workerUrl','Cloudflare-Worker-URL (für Server-Push)','text'],['vapidKey','VAPID Public Key (vom Worker)','text']];
+const CF=[['liq','Min. Liquidität $'],['vol','Min. Vol 1h $'],['mmin','Min. MCap $'],['mmax','Max. MCap $'],['ratio','Min. Käuferanteil (0-1)'],['score','Min. Score'],['cooldown','Cooldown (Minuten)'],['watchPct','Watchlist-Alarm ab % Bewegung'],['devMax','Max. Dev-Wallet-Anteil %'],['quietFrom','Ruhe ab Stunde (0-23, leer=aus)'],['quietTo','Ruhe bis Stunde (0-23)'],['sound','Ton (1/0)'],['minAge','Neu-Token-Sperre (Min. nach Launch)'],['tgMin','Telegram ab Score'],['tgToken','Telegram Bot-Token','text'],['tgChat','Telegram Chat-ID','text'],['workerUrl','Cloudflare-Worker-URL (für Server-Push)','text'],['vapidKey','VAPID Public Key (vom Worker)','text'],['botUrl','Bot-Worker-URL (24/7-Betrieb)','text'],['botKey','Bot-Passwort (24/7-Betrieb)','text']];
 const PR={Konservativ:{liq:3e4,vol:5e4,mmin:1e5,mmax:1e7,ratio:.6,score:75},Ausgewogen:{liq:1e4,vol:2e4,mmin:5e4,mmax:5e6,ratio:.55,score:55},Aggressiv:{liq:5e3,vol:1e4,mmin:2e4,mmax:5e6,ratio:.5,score:55}};
 const DM=40;
-let C={liq:1e4,vol:2e4,mmin:5e4,mmax:5e6,ratio:.55,score:55,cooldown:30,watchPct:15,devMax:15,quietFrom:'',quietTo:'',sound:1,tgToken:'',tgChat:'',workerUrl:'',vapidKey:'',tgMin:80,minAge:6};Object.assign(C,ld('c',{}));if(+C.score===60)C.score=55;C.score=Math.max(55,+C.score||55);
+let C={liq:1e4,vol:2e4,mmin:5e4,mmax:5e6,ratio:.55,score:55,cooldown:30,watchPct:15,devMax:15,quietFrom:'',quietTo:'',sound:1,tgToken:'',tgChat:'',workerUrl:'',vapidKey:'',botUrl:'',botKey:'',tgMin:80,minAge:6};Object.assign(C,ld('c',{}));if(+C.score===60)C.score=55;C.score=Math.max(55,+C.score||55);
 const inQuiet=()=>{if(C.quietFrom===''||C.quietTo===''||C.quietFrom==null||C.quietTo==null)return false;const h=new Date().getHours(),f=+C.quietFrom,t=+C.quietTo;return f<t?(h>=f&&h<t):(h>=f||h<t)};
 let LK={},view='dash',LE='',R=[],FD=ld('fd',[]),SP={},KN=null,bad=0,nxt=0,key='score',dir=-1;
 let W=new Set(ld('w',[])),SM=ld('s2',null);if(!SM){SM={};(ld('s',[])||[]).forEach(k=>SM[k]=Date.now())}
@@ -147,6 +147,13 @@ function ptTime(pd){const f=n=>(n>=0?'+':'')+n.toFixed(3),g=(l,a)=>a.length?l+' 
  const H=[['0–6',0,6],['6–12',6,12],['12–18',12,18],['18–24',18,24]].map(([n,a,b])=>g(n+' Uhr:',pd.filter(d=>{const h=new Date(d.t0).getHours();return h>=a&&h<b}))).filter(Boolean),D=['So','Mo','Di','Mi','Do','Fr','Sa'].map((n,i)=>g(n,pd.filter(d=>new Date(d.t0).getDay()==i))).filter(Boolean),hl=pd.filter(d=>d.hi!=null),
  hi=hl.length?'<br><small>Ø höchster Stand '+(hl.reduce((a,d)=>a+d.hi,0)/hl.length*100).toFixed(0)+'% · Ø tiefster '+(hl.reduce((a,d)=>a+d.lo,0)/hl.length*100).toFixed(0)+'% · '+hl.filter(d=>d.hi>=.25&&d.sol<0).length+' Trades erreichten ≥+25%, endeten aber im Minus</small>':'';
  return '<br><small><b>Nach Uhrzeit</b></small><br><small>'+H.join(' · ')+'</small><br><small><b>Nach Wochentag</b></small><br><small>'+D.join(' · ')+'</small>'+hi}
+async function wSync(force){if(!C.botUrl||!C.botKey)return;const ks=Object.keys(PT.open).sort().join(),now=Date.now();if(!force&&ks==wSync.k&&(now-(wSync.t||0)<3e5||!ks))return;wSync.k=ks;wSync.t=now;
+ try{await fetch(C.botUrl.replace(/\/$/,'')+'/sync',{method:'POST',headers:{'x-key':C.botKey,'content-type':'application/json'},body:JSON.stringify({open:PT.open,cfg:PTC})})}catch(e){}}
+async function wPull(){if(!C.botUrl||!C.botKey)return;try{const r=await fetch(C.botUrl.replace(/\/$/,'')+'/state',{headers:{'x-key':C.botKey}});if(!r.ok)return;const w=await r.json();let ch=0;
+ for(const d of w.done||[]){if(PT.done.some(x=>x.addr+x.t0==d.addr+d.t0))continue;PT.done.unshift(d);delete PT.open[d.chain+':'+d.addr];ch=1}
+ for(const k in w.open||{}){const t=PT.open[k],o=w.open[k];if(!t)continue;t.peak=Math.max(t.peak||0,o.peak||0);t.lo=Math.min(t.lo||t.mc0,o.lo||t.mc0);if((o.tk||[]).length>(t.tk||[]).length)t.tk=o.tk;t.x=t.x||{};for(const a in o.x||{})if(t.x[a]==null&&o.x[a]!=null)t.x[a]=o.x[a]}
+ if(ch){PT.done.sort((a,b)=>b.t1-a.t1);PT.done=PT.done.slice(0,150)}sv('pt',PT);if(ch)draw()}catch(e){}}
+setInterval(wPull,2e4);setInterval(wSync,6e4);
 function ptTick(best){let n=0;for(const k of Object.keys(PT.open)){const t=PT.open[k],p=best[k],mc=p?(p.marketCap||p.fdv||0):0;if(mc>0)t.last=mc;const pnl=t.last/t.mc0-1;
   if(mc>0){t.peak=Math.max(t.peak||t.mc0,mc);t.lo=Math.min(t.lo||t.mc0,mc);const X=t.x||(t.x={});for(const a of [['FIX20',.2,.2],['FIX30',.3,.15]])if(X[a[0]]==null){if(pnl>=a[1])X[a[0]]=a[1];else if(pnl<=-a[2])X[a[0]]=pnl}const K=t.tk||(t.tk=TK(t).slice());for(const st of PTC.stages)if(pnl>=st[0]&&!K.some(x=>x.p==st[0]))K.push({p:st[0],f:st[1]})}
   const pk=(t.peak||t.mc0)/t.mc0-1,m5=p&&p.priceChange?+p.priceChange.m5||0:0,trl=pk>=.4?PTC.tr2:PTC.tr,armed=pk>=PTC.arm;let w=null;
@@ -157,7 +164,7 @@ setInterval(ptFast,2500);document.addEventListener('visibilitychange',()=>{if(!d
 function ptClose(k,pnl,why){const t=PT.open[k],xs=(why=='SL'||why=='MOM')?.03:0,nt=q=>(1+q)*(1-PTC.fee-(t.slip||0)-xs)/(1+PTC.fee+(t.slip||0))-1,net=TK(t).reduce((a,x)=>a+x.f*nt(x.p),0)+(1-TK(t).reduce((a,x)=>a+x.f,0))*nt(pnl),alt={};for(const a in (t.x||{}))alt[a]=nt(t.x[a]==null?pnl:t.x[a]);PT.done.unshift({alt,hi:(t.peak||t.mc0)/t.mc0-1,lo:(t.lo||t.mc0)/t.mc0-1,sym:t.sym,chain:t.chain,addr:t.addr,score:t.score,mc0:t.mc0,mc1:t.last,pnl:bp(t,pnl),net,sol:PTC.size*net,why,t0:t.t0,t1:Date.now()});PT.done=PT.done.slice(0,150);delete PT.open[k];sv('pt',PT)}
 function ping(r,tag,kind){const NOW=Date.now();FD.unshift({ts:NOW,t:new Date(NOW).toTimeString().slice(0,5),tag,sym:r.sym,addr:r.addr,chain:r.chain,key:r.key,mc:r.mc,score:r.score});FD=FD.slice(0,120);sv('fd',FD);
  if(tag=='🔔 SIGNAL'&&r.score>=PTC.min&&!PT.open[r.key]){const w=botOk(r);if(w){PT.sk=PT.sk||{};PT.sk[w]=(PT.sk[w]||0)+1;sv('pt',PT)}}
- if(tag=='🔔 SIGNAL'&&r.score>=PTC.min&&!PT.open[r.key]&&botOk(r)==''&&ptStats().free>=PTC.size-1e-9){PT.open[r.key]={sym:r.sym,chain:r.chain,addr:r.addr,mc0:r.mc,last:r.mc,t0:Date.now(),score:r.score,peak:r.mc,slip:(r.liq<2e4?.06:r.liq<5e4?.03:.015)+Math.min(.08,Math.max(0,r.c5||0)*.0015),x:{FIX20:null,FIX30:null}};sv('pt',PT)}
+ if(tag=='🔔 SIGNAL'&&r.score>=PTC.min&&!PT.open[r.key]&&botOk(r)==''&&ptStats().free>=PTC.size-1e-9){PT.open[r.key]={sym:r.sym,chain:r.chain,addr:r.addr,mc0:r.mc,last:r.mc,t0:Date.now(),score:r.score,peak:r.mc,slip:(r.liq<2e4?.06:r.liq<5e4?.03:.015)+Math.min(.08,Math.max(0,r.c5||0)*.0015),x:{FIX20:null,FIX30:null}};sv('pt',PT);wSync(1)}
  if(tag=='🔔 SIGNAL'&&!TR[r.key]){TR[r.key]={t0:Date.now(),mc0:r.mc,peak:r.mc,chain:r.chain,addr:r.addr,sym:r.sym,score:r.score,fl:r.flags.slice(),m1:null};sv('tr',TR)}
  navigator.vibrate&&navigator.vibrate([200,100,200]);beep(kind);
  if('Notification' in window&&Notification.permission=='granted'){const b='🕐 '+tm(NOW)+' · '+r.sym+' · MC '+F(r.mc)+' · Score '+r.score;
@@ -275,7 +282,7 @@ document.onclick=e=>{if(e.target.id=='mo'||e.target.closest('[data-m]')){$('#mo'
 $('#q').oninput=$('#rk').oninput=draw;
 $('#fq').oninput=renderFeed;
 $('#cf').innerHTML=CF.map(([k,n,t])=>`<label>${n}<input data-cf="${k}" type="${t||'number'}" ${t?'':'step=any'} value="${C[k]}"></label>`).join('');
-$('#cf').onchange=e=>{const k=e.target.dataset.cf;if(k){const raw=e.target.value;const txt=['tgToken','tgChat','workerUrl','vapidKey'].includes(k);C[k]=txt?raw:((k=='quietFrom'||k=='quietTo')&&raw===''?'':(k=='score'?Math.max(55,+raw):+raw));e.target.value=C[k];sv('c',C);draw()}};
+$('#cf').onchange=e=>{const k=e.target.dataset.cf;if(k){const raw=e.target.value;const txt=['tgToken','tgChat','workerUrl','vapidKey','botUrl','botKey'].includes(k);C[k]=txt?raw:((k=='quietFrom'||k=='quietTo')&&raw===''?'':(k=='score'?Math.max(55,+raw):+raw));e.target.value=C[k];sv('c',C);draw()}};
 $('#nb').onclick=async()=>{if(!('Notification' in window))return alert('Benachrichtigungen werden hier nicht unterstützt (iPhone: erst zum Home-Bildschirm hinzufügen).');
  $('#nb').textContent=(await Notification.requestPermission())=='granted'?'🔔 aktiv':'🔕 blockiert'};
 if('Notification' in window&&Notification.permission=='granted')$('#nb').textContent='🔔 aktiv';
