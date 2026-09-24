@@ -101,6 +101,46 @@ let Hh=ld('h',{}),RC=ld('rc',{}),RCbusy=new Set(),CE=ld('ce',null);if(!CE)CE=[..
 let PT=ld('pt',{open:{},done:[]}),PTC={size:.2,tp:.2,sl:.2,min:55,fee:.01,start:2,arm:.2,cap:1.5,tr:.12,tr2:.15,floor:.08,stages:[[.25,1/3],[.6,1/3]],maxOpen:3,maxRun1:120,maxMcLiq:30,confirm:45e3,rug:.3,stagMin:90,stagBand:.1,dayLoss:.3,minAge:.5,minLiq:15e3,maxRun:40,buy:70,top10:40,top1:25,ins:20,holdMin:60,tfee:5};
 let TR=ld('tr',{}),STZ=ld('stz',{wins:0,losses:0,total:0}),STZH=ld('stzh',[]);
 let WV=ld('wv',{}),CP=false,SNZ=ld('snz',{});
+let CO=Object.assign({rules:[],les:[],sh:[],dn:{}},ld('co',{}));
+const KF={score:['Score',v=>v.toFixed(0)],mcl:['MCap/Liq',v=>v.toFixed(0)+'×'],c5:['5-Min-Lauf',v=>v.toFixed(0)+'%'],c1:['1-Std-Lauf',v=>v.toFixed(0)+'%'],ratio:['Käuferanteil',v=>(v*100).toFixed(0)+'%'],liq:['Liquidität',F],age:['Alter',v=>v.toFixed(1)+' Std'],top10:['Top-10-Holder',v=>v.toFixed(0)+'%'],top1:['Größter Wallet',v=>v.toFixed(0)+'%'],v1l:['Volumen/Liq',v=>v.toFixed(1)+'×']};
+const HY=[['c5','>',20,'Einstieg nach starkem 5-Min-Lauf'],['c1','>',80,'Token war in 1h schon stark gelaufen'],['mcl','>',20,'Dünne Liquidität im Verhältnis zur MCap'],['ratio','<',.58,'Verkäuferdruck (wenig Käufer)'],['top10','>',30,'Hohe Holder-Konzentration'],['top1','>',15,'Ein Wallet dominiert'],['liq','<',2e4,'Wenig Liquidität'],['age','<',1,'Sehr junger Token']];
+const feat=r=>{const g=r.rug||{},n=x=>x==null||isNaN(x)?null:+(+x).toFixed(3);return{score:r.score,mcl:r.liq>0?n(r.mc/r.liq):null,c5:n(r.c5||0),c1:n(r.c1||0),ratio:n(r.ratio),liq:Math.round(r.liq),age:n(r.age),top10:n(g.top10),top1:n(g.top1),v1l:r.liq>0?n(r.v1/r.liq):null}};
+const rt=(u,f)=>{const x=f&&f[u.k];return x!=null&&(u.o=='>'?x>=u.v:x<=u.v)};
+const rn=u=>KF[u.k][0]+(u.o=='>'?' ≥ ':' ≤ ')+KF[u.k][1](u.v);
+function ev(u){const T=PT.done.filter(d=>d.f),h=[[0,0],[0,0]];let n=0,l=0,s=0;T.forEach((d,i)=>{if(!rt(u,d.f))return;n++;s+=d.sol;const q=i<T.length/2?0:1;h[q][0]++;if(d.sol<0){l++;h[q][1]++}});return{n,l,s,h,N:T.length,base:T.length?T.filter(d=>d.sol<0).length/T.length:0}}
+function addRule(k,o,v,why){if(CO.rules.some(u=>u.k==k&&u.o==o))return null;const u={id:'r'+Date.now().toString(36)+k,k,o,v,s:'probe',t:Date.now(),why,b:0,sn:0,sl:0};CO.rules.push(u);return u}
+function coachPost(d){const f=d.f||{},c=[],ids=[];
+ if(d.why=='RUG')c.push('Liquidität wurde abgezogen (Rug)');
+ if(d.hi>=.12)c.push('Gewinn nicht gesichert – Trade stand bei +'+(d.hi*100).toFixed(0)+'%, endete im Minus');
+ else if(d.hi<.03&&d.t1-d.t0>6e5)c.push('Kein Momentum – Kurs kam nie in Fahrt');
+ for(const[k,o,v,tx]of HY)if(f[k]!=null&&(o=='>'?f[k]>=v:f[k]<=v)){c.push(tx+' ('+KF[k][0]+' '+KF[k][1](f[k])+')');const u=addRule(k,o,v,'Verlust '+d.sym);if(u)ids.push(u.id)}
+ CO.les.unshift({t:Date.now(),sym:d.sym,sol:d.sol,why:d.why,c:c.length?c:['Keine klare Ursache erkennbar – normales Marktrisiko'],n:ids.length});CO.les=CO.les.slice(0,30)}
+function coachMine(){const T=PT.done.filter(d=>d.f);if(T.length<12)return;const N=T.length,base=T.filter(d=>d.sol<0).length/N;let best=null;
+ for(const k in KF){if(k=='score')continue;const vs=T.map(d=>d.f[k]).filter(x=>x!=null).sort((a,b)=>a-b);if(vs.length<10)continue;
+  for(const o of['>','<'])for(const q of[.2,.35,.5,.65,.8]){if(CO.rules.some(u=>u.k==k&&u.o==o))continue;const v=+vs[Math.floor(q*(vs.length-1))].toPrecision(2),u={k,o,v},e=ev(u);
+   if(e.n>=Math.max(5,N*.08)&&e.l/e.n>=.75&&e.l/e.n>=base+.2&&e.s<0&&(!best||e.s<best.e.s))best={u,e}}}
+ if(best)addRule(best.u.k,best.u.o,best.u.v,'Muster in '+N+' Trades')}
+function coachReview(){for(const u of CO.rules){if(u.s=='off')continue;const e=ev(u),n=e.n+u.sn,l=e.l+u.sl,lr=n?l/n:0,ok=e.h.every(h=>h[0]<2||h[1]/h[0]>=.6);
+  if(u.s=='probe'&&n>=6&&lr>=.75&&ok&&e.s<0)u.s='on';
+  else if(n>=8&&lr<.5)u.s=u.s=='on'?'off':'drop';
+  u.n=n;u.lr=lr}
+ CO.rules=CO.rules.filter(u=>u.s!='drop'&&!(u.s=='probe'&&Date.now()-u.t>6048e5&&(u.n||0)<3));
+ const pr=CO.rules.filter(u=>u.s=='probe');if(pr.length>8)pr.sort((a,b)=>(a.n||0)-(b.n||0)).slice(0,pr.length-8).forEach(u=>CO.rules.splice(CO.rules.indexOf(u),1))}
+function coachLearn(d){if(!d||!d.f)return;if(d.sol<0)coachPost(d);coachMine();coachReview();sv('co',CO)}
+function coachGate(r){const f=feat(r);for(const u of CO.rules){if(u.s!='on'||!rt(u,f))continue;
+  if(!CO.sh.some(x=>x.key==r.key)&&!CO.dn[r.key]&&CO.sh.length<30){u.b=(u.b||0)+1;CO.sh.push({key:r.key,chain:r.chain,addr:r.addr,mc0:r.mc,t0:Date.now(),u:u.id,last:r.mc});sv('co',CO)}return u}return null}
+function coachTick(){if(!CO.sh.length)return;const M={};R.forEach(r=>M[r.key]=r);const now=Date.now();let ch=0;
+ CO.sh=CO.sh.filter(x=>{const r=M[x.key];if(r)x.last=r.mc;const p=x.last/x.mc0-1,age=now-x.t0;let loss=null;
+  if(p>=PTC.tp)loss=false;else if(p<=-PTC.sl)loss=true;else if(age>72e4)loss=p-.06<0;else return true;
+  const u=CO.rules.find(y=>y.id==x.u);if(u){u.sn++;if(loss)u.sl++}CO.dn[x.key]=now;ch=1;return false});
+ for(const k in CO.dn)if(now-CO.dn[k]>18e5)delete CO.dn[k];
+ if(ch){coachReview();sv('co',CO)}}
+function coachHtml(){const on=CO.rules.filter(u=>u.s=='on'),pb=CO.rules.filter(u=>u.s=='probe'),off=CO.rules.filter(u=>u.s=='off');
+ const ru=u=>`<div style="padding:6px 0;border-top:1px solid #ffffff12"><b>${u.s=='on'?'🛡':u.s=='probe'?'👁':'⏸'} ${X(rn(u))}</b> <button class=f data-cr="${u.id}">${u.s=='on'?'ausschalten':'einschalten'}</button><br><small>${u.s=='on'?(u.b||0)+' Einstiege geblockt · ':''}${u.n?u.n+' Fälle, '+Math.round(u.lr*100)+'% Verlust · ':''}Grund: ${X(u.why)}</small></div>`;
+ const ls=CO.les.slice(0,4).map(l=>`<div style="padding:6px 0;border-top:1px solid #ffffff12"><small>${tm(l.t)} · <b>${X(l.sym)}</b> ${sol(l.sol)} SOL (${X(l.why)})</small><br>${l.c.map(x=>'• '+X(x)).join('<br>')}</div>`).join('');
+ return `<div class=cd><div class=ch><b>🧠 KI-Coach</b><span class=ag>${on.length} aktiv · ${pb.length} in Beobachtung</span></div><small>Analysiert jeden Verlust, legt Regeln an und blockiert Einstiege erst, wenn die Daten die Regel bestätigen (🛡 = blockiert, 👁 = wird geprüft).</small>${on.concat(pb,off).map(ru).join('')||'<div class=em>Noch keine Regeln – der Coach lernt ab dem ersten Verlust-Trade.</div>'}${ls?'<div style="margin-top:8px"><small><b>Letzte Verlust-Analysen</b></small></div>'+ls:''}<div style="margin-top:8px"><button class=b id=cor>Coach zurücksetzen</button></div></div>`}
+document.addEventListener('click',e=>{const c=e.target.closest('[data-cr]');if(c){const u=CO.rules.find(x=>x.id==c.dataset.cr);if(u){u.s=u.s=='on'?'off':'on';sv('co',CO);draw()}}if(e.target.id=='cor'&&confirm('Alle Regeln und Analysen des Coaches löschen?')){CO={rules:[],les:[],sh:[],dn:{}};sv('co',CO);draw()}});
+
 const fl=r=>{const f=[];if(r.age!=null&&r.age<.25)f.push('BRANDNEU');if(r.mc&&r.liq/r.mc<.03)f.push('DÜNNE LIQ');if(r.b+r.s>=20&&r.ratio<.4)f.push('VERKÄUFER');if(r.c1<-30)f.push('DUMP');if(r.boost)f.push('BOOST');if(r.b>=10&&r.s==0&&r.v1>1000)f.push('MÖGL. HONEYPOT');return f};
 const sc=r=>{let s=Math.min(30,r.v1/Math.max(r.liq,1)*10)+Math.max(0,r.ratio-.5)*80+Math.min(20,Math.max(0,r.c5)*2)+(r.boost?5:0);
  s-=15*r.flags.filter(x=>['DÜNNE LIQ','VERKÄUFER','DUMP'].includes(x)).length;
@@ -201,7 +241,7 @@ async function wPull(){if(!C.botUrl||!C.botKey)return;try{const r=await fetch(C.
  for(const k in w.open||{}){const t=PT.open[k],o=w.open[k];if(!t)continue;t.peak=Math.max(t.peak||0,o.peak||0);t.lo=Math.min(t.lo||t.mc0,o.lo||t.mc0);if((o.tk||[]).length>(t.tk||[]).length)t.tk=o.tk;t.x=t.x||{};for(const a in o.x||{})if(t.x[a]==null&&o.x[a]!=null)t.x[a]=o.x[a]}
  if(ch){PT.done.sort((a,b)=>b.t1-a.t1);PT.done=PT.done.slice(0,150)}sv('pt',PT);if(ch)draw()}catch(e){}}
 setInterval(wPull,2e4);setInterval(wSync,6e4);
-function ptBuy(r){PT.open[r.key]={sym:r.sym,chain:r.chain,addr:r.addr,mc0:r.mc,last:r.mc,t0:Date.now(),score:r.score,peak:r.mc,liq0:r.liq,slip:(r.liq<2e4?.05:r.liq<5e4?.03:.015)+Math.min(.03,Math.max(0,r.c5||0)*.0005),x:{FIX20:null,FIX30:null}};sv('pt',PT);wSync(1)}
+function ptBuy(r){PT.open[r.key]={sym:r.sym,chain:r.chain,addr:r.addr,mc0:r.mc,last:r.mc,t0:Date.now(),score:r.score,peak:r.mc,liq0:r.liq,f:feat(r),slip:(r.liq<2e4?.05:r.liq<5e4?.03:.015)+Math.min(.03,Math.max(0,r.c5||0)*.0005),x:{FIX20:null,FIX30:null}};sv('pt',PT);wSync(1)}
 function ptConfirm(){const P=PT.pend;if(!P)return;for(const k of Object.keys(P)){const p=P[k];if(Date.now()-p.t<PTC.confirm)continue;delete P[k];const r=R.find(x=>x.key==k),w=!r?'Bestätigung':PT.open[k]?'':(r.mc<p.mc*.95||r.mc>p.mc*1.12||(r.c5||0)<-3)?'Bestätigung':botOk(r)||(ptStats().free<PTC.size-1e-9?'Kein Kapital':'');
  if(w){PT.sk=PT.sk||{};PT.sk[w]=(PT.sk[w]||0)+1;sv('pt',PT)}else if(r&&!PT.open[k])ptBuy(r);else sv('pt',PT)}}
 function ptTick(best){let n=0;for(const k of Object.keys(PT.open)){const t=PT.open[k],p=best[k],mc=p?(p.marketCap||p.fdv||0):0;if(mc>0)t.last=mc;const pnl=t.last/t.mc0-1;
@@ -212,7 +252,7 @@ function ptTick(best){let n=0;for(const k of Object.keys(PT.open)){const t=PT.op
   if(w){ptClose(k,pnl,w);n++}}return n}
 async function ptFast(){const o=Object.values(PT.open);if(!o.length||ptFast.b)return;ptFast.b=1;try{const by={},best={};o.forEach(t=>(by[t.chain]=by[t.chain]||[]).push(t.addr));for(const c in by)for(let i=0;i<by[c].length;i+=30){const ch=by[c].slice(i,i+30);for(const p of await J('/tokens/v1/'+c+'/'+ch.join(','))){if(!ch.includes(p.baseToken.address))continue;const key=c+':'+p.baseToken.address,l=(p.liquidity||{}).usd||0;if(!best[key]||l>((best[key].liquidity||{}).usd||0))best[key]=p}}const n=ptTick(best);sv('pt',PT);if(n)draw()}catch(e){}ptFast.b=0}
 setInterval(ptFast,2500);document.addEventListener('visibilitychange',()=>{if(!document.hidden)ptFast()});
-function ptClose(k,pnl,why){const t=PT.open[k],xs=(why=='SL'||why=='MOM'||why=='RUG')?.02:0,nt=q=>(1+q)*(1-PTC.fee-(t.slip||0)-xs)/(1+PTC.fee+(t.slip||0))-1,net=TK(t).reduce((a,x)=>a+x.f*nt(x.p),0)+(1-TK(t).reduce((a,x)=>a+x.f,0))*nt(pnl),alt={};for(const a in (t.x||{}))alt[a]=nt(t.x[a]==null?pnl:t.x[a]);PT.done.unshift({alt,hi:(t.peak||t.mc0)/t.mc0-1,lo:(t.lo||t.mc0)/t.mc0-1,sym:t.sym,chain:t.chain,addr:t.addr,score:t.score,mc0:t.mc0,mc1:t.last,pnl:bp(t,pnl),net,sol:PTC.size*net,why,t0:t.t0,t1:Date.now()});PT.done=PT.done.slice(0,150);delete PT.open[k];sv('pt',PT)}
+function ptClose(k,pnl,why){const t=PT.open[k],xs=(why=='SL'||why=='MOM'||why=='RUG')?.02:0,nt=q=>(1+q)*(1-PTC.fee-(t.slip||0)-xs)/(1+PTC.fee+(t.slip||0))-1,net=TK(t).reduce((a,x)=>a+x.f*nt(x.p),0)+(1-TK(t).reduce((a,x)=>a+x.f,0))*nt(pnl),alt={};for(const a in (t.x||{}))alt[a]=nt(t.x[a]==null?pnl:t.x[a]);PT.done.unshift({alt,hi:(t.peak||t.mc0)/t.mc0-1,lo:(t.lo||t.mc0)/t.mc0-1,f:t.f,sym:t.sym,chain:t.chain,addr:t.addr,score:t.score,mc0:t.mc0,mc1:t.last,pnl:bp(t,pnl),net,sol:PTC.size*net,why,t0:t.t0,t1:Date.now()});PT.done=PT.done.slice(0,150);delete PT.open[k];sv('pt',PT);try{coachLearn(PT.done[0])}catch(e){}}
 function ping(r,tag,kind){const NOW=Date.now();FD.unshift({ts:NOW,t:new Date(NOW).toTimeString().slice(0,5),tag,sym:r.sym,addr:r.addr,chain:r.chain,key:r.key,mc:r.mc,score:r.score});FD=FD.slice(0,120);sv('fd',FD);
  if(false&&tag=='🔔 SIGNAL'&&r.score>=PTC.min&&!PT.open[r.key]){const w=botOk(r);if(w){PT.sk=PT.sk||{};PT.sk[w]=(PT.sk[w]||0)+1;sv('pt',PT)}}
  if(false&&tag=='🔔 SIGNAL'&&r.score>=PTC.min&&!PT.open[r.key]&&botOk(r)==''){PT.pend=PT.pend||{};if(!PT.pend[r.key]){PT.pend[r.key]={t:Date.now(),mc:r.mc};sv('pt',PT)}}
@@ -236,7 +276,7 @@ async function scan(){if(SCANNING)return;SCANNING=true;try{
  const trAll=Object.keys(TR);
  const trAlive=trAll.filter(k=>Date.now()-TR[k].t0<3e5);
  trAlive.forEach(k=>{const t=TR[k];byChain[t.chain]=byChain[t.chain]||[];if(!byChain[t.chain].includes(t.addr))byChain[t.chain].push(t.addr)});
- Object.values(PT.open).forEach(t=>{byChain[t.chain]=byChain[t.chain]||[];if(!byChain[t.chain].includes(t.addr))byChain[t.chain].push(t.addr)});
+ Object.values(PT.open).concat(CO.sh).forEach(t=>{byChain[t.chain]=byChain[t.chain]||[];if(!byChain[t.chain].includes(t.addr))byChain[t.chain].push(t.addr)});
  for(const chain in byChain){const list=byChain[chain];
   for(let i=0;i<list.length;i+=30)try{const ch=list.slice(i,i+30);for(const p of await J('/tokens/v1/'+chain+'/'+ch.join(','))){if(!ch.includes(p.baseToken.address))continue;p._chain=chain;const key=chain+':'+p.baseToken.address,l=(p.liquidity||{}).usd||0;if(!best[key]||l>((best[key].liquidity||{}).usd||0))best[key]=p}}catch(e){}}
  let stzDirty=false;
@@ -252,9 +292,10 @@ async function scan(){if(SCANNING)return;SCANNING=true;try{
    const h=LQH[r.key]=LQH[r.key]||[];h.push([now,r.liq]);while(h.length&&now-h[0][0]>3e5)h.shift();
    const mx=Math.max(...h.map(x=>x[1]));if(h.length>=3&&mx>0&&r.liq<mx*.75){r.flags.push('LIQ-DROP');r.score=Math.max(0,r.score-25)}});
   for(const k in LQH)if(!best[k]&&now-LQH[k][LQH[k].length-1][0]>3e5)delete LQH[k]}
+ try{coachTick()}catch(e){}
  {const now=Date.now();for(const r of R){if(r.score<=PTC.buy||PT.open[r.key]||!hit(r))continue;
    if(PT.done.some(d=>d.addr==r.addr&&now-d.t1<3e5)||ptStats().free<PTC.size-1e-9)continue;
-   ptBuy(r)}}
+   if(coachGate(r))continue;ptBuy(r)}}
  R.forEach(r=>{if(r.mc>=5e4&&!(LK[r.key]&&LK[r.key].length))r.flags.push('KEINE SOCIALS')});
  {const spgV=Date.now()-VPT>15e3;if(spgV)VPT=Date.now();
   R.forEach(r=>{const v=VH[r.key]=VH[r.key]||[];
@@ -325,7 +366,7 @@ function draw(){document.body.classList.toggle('sb',view!='home');document.query
  $('#k1').textContent=R.filter(x=>x.score>=DM).length+' Chancen';if($('#hk1'))$('#hk1').textContent=R.filter(x=>x.score>=DM).length+' Chancen live';{const s=ptStats();const v=PTC.start+s.real+s.ov-s.os;$('#k6').textContent=sol(v)+' SOL'+usd(v)}$('#k2').textContent=R.filter(hit).length+' aktiv';$('#k3').textContent=W.size+' ★ · Top '+Math.max(0,...R.map(x=>x.score));
  const tb=R.reduce((a,x)=>a+x.b,0),tsl=R.reduce((a,x)=>a+x.s,0),br=tb+tsl?tb/(tb+tsl)*100:50;$('#k4').textContent='Käufer '+br.toFixed(0)+'%';$('#br').style.width=br+'%';
  $('#k5').textContent=STZ.total?Math.round(STZ.wins/STZ.total*100)+'% Trefferquote':'noch keine Daten';
- if(pv){view=='dash'?renderDash():view=='stats'?renderStats():renderPerf();renderFeed();R.forEach(r=>r.nw=false);return}
+ if(pv){view=='dash'?renderDash():view=='stats'?(renderStats(),$('#cards').insertAdjacentHTML('beforeend',coachHtml())):renderPerf();renderFeed();R.forEach(r=>r.nw=false);return}
  $('#hot').innerHTML=[...R].filter(x=>x.score>=DM).sort((a,b)=>b.score-a.score).slice(0,3).map(x=>`<div class=hc><small>🔥 Top Score</small><br><b>${X(x.sym)}</b> <span class=chn>${CHN[x.chain]}</span> <span class=sc style="background:hsl(${x.score*1.2},85%,58%)">${x.score}</span><br><small>${F(x.mc)} · 5m ${x.c5.toFixed(0)}%</small>${al2(x)?'<br><small style="color:var(--g)">🔔 '+tm(al2(x).ts)+' · bei '+F(al2(x).mc)+'</small>':''}<br>${sp(x)}<button class=ca data-c="${X(x.addr)}"><code>${X(x.addr)}</code><span>⧉ kopieren</span></button></div>`).join('');
  $('#sr').innerHTML=[['score','Score'],['al','Neue Alarme']].map(([k,n])=>`<button data-k="${k}" class="${k==key?'on':''}">${n}${k==key?(dir<0?' ▼':' ▲'):''}</button>`).join('');
  $('#chn').innerHTML=CHAINS.map(c=>`<button data-ch="${c}" class="${CE.includes(c)?'on':''}">${CHN[c]}</button>`).join('');
