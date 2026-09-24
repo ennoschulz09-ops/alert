@@ -98,19 +98,19 @@ const inQuiet=()=>{if(C.quietFrom===''||C.quietTo===''||C.quietFrom==null||C.qui
 let LK={},view='home',LE='',R=[],FD=ld('fd',[]),SP={},KN=null,bad=0,nxt=0,key='score',dir=-1;
 let W=new Set(ld('w',[])),SM=ld('s2',null);if(!SM){SM={};(ld('s',[])||[]).forEach(k=>SM[k]=Date.now())}
 let Hh=ld('h',{}),RC=ld('rc',{}),RCbusy=new Set(),CE=ld('ce',null);if(!CE)CE=[...CHAINS];
-let PT=ld('pt',{open:{},done:[]}),PTC={size:.2,tp:.2,sl:.2,min:55,fee:.01,start:2,arm:.2,cap:1.5,tr:.12,tr2:.15,floor:.08,stages:[[.25,1/3],[.6,1/3]],maxOpen:3,maxRun1:120,maxMcLiq:30,confirm:45e3,rug:.3,stagMin:90,stagBand:.1,dayLoss:.3,minAge:.5,minLiq:15e3,maxRun:40,buy:70,top10:40,top1:25,ins:20,holdMin:60,tfee:5};
+let PT=ld('pt',{open:{},done:[]}),PTC={size:.1,tp:.2,sl:.2,min:55,fee:.01,start:2,arm:.2,cap:1.5,tr:.12,tr2:.15,floor:.08,stages:[[.25,1/3],[.6,1/3]],maxOpen:12,maxRun1:120,maxMcLiq:30,confirm:45e3,rug:.3,stagMin:90,stagBand:.1,dayLoss:.5,minAge:.5,minLiq:15e3,maxRun:40,buy:70,top10:40,top1:25,ins:20,holdMin:60,tfee:5};
 let TR=ld('tr',{}),STZ=ld('stz',{wins:0,losses:0,total:0}),STZH=ld('stzh',[]);
 let WV=ld('wv',{}),CP=false,SNZ=ld('snz',{});
 let CO=Object.assign({rules:[],les:[],sh:[],dn:{}},ld('co',{}));
-const mF=f=>{const g=(k,d)=>f[k]==null?d:f[k],c=(x,a,b)=>Math.max(a,Math.min(b,x));return[g('score',55)/100,c(Math.log(1+g('mcl',10))/4,0,1.5),c(g('c5',0)/50,-1,2),c(g('c1',0)/200,-1,2),g('ratio',.55),Math.log(1+g('liq',1e4))/12,Math.min(g('age',5),48)/48,g('top10',20)/100,g('top1',8)/50,c(g('v1l',2)/10,0,2),c(Math.log(1+g('act',50))/7,0,1.5),c(g('since',0)/100,-1,2),c(Math.log(1+g('rep',0))/4,0,1.5),g('soc',1)/3,c(g('ser',0)/3,0,2)]};
+const mF=f=>{const g=(k,d)=>f[k]==null?d:f[k],c=(x,a,b)=>Math.max(a,Math.min(b,x));return[g('score',55)/100,c(Math.log(1+g('mcl',10))/4,0,1.5),c(g('c5',0)/50,-1,2),c(g('c1',0)/200,-1,2),g('ratio',.55),Math.log(1+g('liq',1e4))/12,Math.min(g('age',5),48)/48,g('top10',20)/100,g('top1',8)/50,c(g('v1l',2)/10,0,2),c(Math.log(1+g('act',50))/7,0,1.5),c(g('since',0)/100,-1,2),c(Math.log(1+g('rep',0))/4,0,1.5),g('soc',1)/3,c(g('ser',0)/3,0,2),c((g('c5',0)*12-g('c1',0))/300,-1,2),g('score',55)/100*g('ratio',.55)]};
 const mS=z=>1/(1+Math.exp(-Math.max(-30,Math.min(30,z))));
 const mP=(m,f)=>{const x=mF(f);if(x.length!=m.w.length)return 1;return mS(m.b+x.reduce((a,v,i)=>a+v*m.w[i],0))};
 function mFit(S){const X=S.map(s=>mF(s.f)),w=Array(X[0].length).fill(0);let b=0;for(let e=0;e<300;e++){const gw=Array(w.length).fill(0);let gb=0;S.forEach((s,i)=>{const er=mS(b+X[i].reduce((a,v,j)=>a+v*w[j],0))-(s.w?1:0);X[i].forEach((v,j)=>gw[j]+=er*v);gb+=er});for(let j=0;j<w.length;j++)w[j]-=.3*(gw[j]/S.length+.05*w[j]);b-=.3*gb/S.length}return{w,b}}
 function coachModel(){const S=PT.done.filter(d=>d.f).map(d=>({f:d.f,w:d.sol>0,t:d.t1})).concat((CO.ss||[]).map(s=>({f:s.f,w:s.w,t:s.t}))),old=CO.m||{};
- if(S.length<30){CO.m=Object.assign(old,{n:S.length,on:false});return}
- S.sort((a,b)=>a.t-b.t);const k=Math.floor(S.length*.75),tr=S.slice(0,k),te=S.slice(k),br=tr.filter(s=>s.w).length/tr.length,m0=mFit(tr),
+ if(S.length<20){CO.m=Object.assign(old,{n:S.length,on:false});return}
+ S.sort((a,b)=>a.t-b.t);const k=Math.floor(S.length*.7),tr=S.slice(0,k),te=S.slice(k),br=tr.filter(s=>s.w).length/tr.length,m0=mFit(tr),
  bs=te.reduce((a,s)=>a+(mP(m0,s.f)-(s.w?1:0))**2,0)/te.length,b0=te.reduce((a,s)=>a+(br-(s.w?1:0))**2,0)/te.length,m=mFit(S),base=S.filter(s=>s.w).length/S.length;
- CO.m={w:m.w,b:m.b,n:S.length,base,th:Math.max(.12,base*.6),q:b0?1-bs/b0:0,on:te.length>=10&&bs<b0*.95&&!old.off,off:old.off,sn:old.sn||0,sl:old.sl||0}}
+ CO.m={w:m.w,b:m.b,n:S.length,base,th:Math.max(.12,base*.6),q:b0?1-bs/b0:0,on:te.length>=8&&bs<b0*.95&&!old.off,off:old.off,sn:old.sn||0,sl:old.sl||0}}
 const EXA={BE07:[.07,.01],BE10:[.1,.02],BE15:[.15,.03]};
 function coachAlt(t,pnl){const X=t.x||(t.x={}),pk=(t.peak||t.mc0)/t.mc0-1;for(const n in EXA){if(!(n in X))X[n]=null;if(X[n]!=null)continue;if(pnl>=.2)X[n]=.2;else if(pnl<=-.2)X[n]=pnl;else if(pk>=EXA[n][0]&&pnl<=EXA[n][1])X[n]=(1+pnl)*.98-1}for(const n in EXG){if(!(n in X))X[n]=null;if(X[n]!=null)continue;if(pnl>=EXG[n][0])X[n]=EXG[n][0];else if(pnl<=-EXG[n][1])X[n]=pnl}}
 function coachExit(){const T=PT.done.filter(d=>d.alt&&d.alt.FIX20!=null&&d.alt.BE10!=null);CO.xg={};if(T.length<20)return;let best=null;const av=x=>x.reduce((s,v)=>s+v,0)/(x.length||1);
@@ -121,10 +121,16 @@ function coachExit(){const T=PT.done.filter(d=>d.alt&&d.alt.FIX20!=null&&d.alt.B
  CO.tpsl=b2?{n:b2,tp:EXG[b2][0],sl:EXG[b2][1]}:null;coachApply()}
 const EXG={};[.15,.2,.3].forEach(tp=>[.12,.15,.2].forEach(sl=>{if(!(tp==.2&&sl==.2))EXG['T'+Math.round(tp*100)+'S'+Math.round(sl*100)]=[tp,sl]}));
 function coachApply(){PTC.buy=CO.buy||70;PTC.tp=CO.tpsl?CO.tpsl.tp:.2;PTC.sl=CO.tpsl?CO.tpsl.sl:.2}coachApply();
-const coachP=r=>CO.m&&CO.m.w&&CO.m.n>=30?'<br><small>🧠 KI-Chance '+Math.round(mP(CO.m,feat(r))*100)+'%</small>':'';
+const QTG=10,QS={c:0,L:0,t:0};
+function QLv(){const n=Date.now();if(n-QS.t<2e3)return QS.L;const h=n-36e5,c=Object.values(PT.open).filter(t=>t.t0>h).length+PT.done.filter(d=>d.t0>h).length;QS.c=c;QS.L=c>=QTG?0:c>=7?1:c>=4?2:3;QS.t=n;return QS.L}
+const QP=k=>({minLiq:[PTC.minLiq,12e3,8e3,5e3],minAge:[PTC.minAge,.3,.2,.1],mcl:[PTC.maxMcLiq,40,60,80],top10:[PTC.top10,45,50,55],top1:[PTC.top1,30,35,40],ins:[PTC.ins,25,30,35],hold:[PTC.holdMin,50,40,30],conf:[PTC.confirm,3e4,2e4,12e3],band:[.12,.18,.25,.3]}[k][QLv()]);
+const QBuy=()=>{const L=QLv();return L?Math.min(PTC.buy,[0,65,60,55][L]):PTC.buy};
+const hitQ=r=>{if(hit(r))return true;const L=QLv();return L>0&&r.liq>=[0,8e3,6e3,5e3][L]&&r.v1>=[0,15e3,1e4,8e3][L]&&r.mc>=[0,4e4,3e4,2e4][L]&&r.mc<=C.mmax&&r.ratio>=[0,.53,.5,.48][L]&&r.score>=C.score};
+const QPri=r=>r.score+(CO.m&&CO.m.on?40*mP(CO.m,feat(r)):0);
+const coachP=r=>CO.m&&CO.m.w&&CO.m.n>=20?'<br><small>🧠 KI-Chance '+Math.round(mP(CO.m,feat(r))*100)+'%</small>':'';
 document.addEventListener('click',async e=>{const id=e.target.id;if(id=='cob'){const j=JSON.stringify({co:CO,pt:PT.done.slice(0,150)});try{await navigator.clipboard.writeText(j);alert('Coach-Daten kopiert. Füge sie in eine Notiz ein, um sie zu sichern.')}catch(x){prompt('Alles markieren und kopieren:',j)}}
  if(id=='coi'){const t=prompt('Gesicherte Coach-Daten einfügen:');if(!t)return;try{const j=JSON.parse(t);if(!j.co)throw 0;CO=Object.assign({rules:[],les:[],sh:[],dn:{}},j.co);const have=new Set(PT.done.map(d=>d.addr+d.t0));(j.pt||[]).forEach(d=>{if(!have.has(d.addr+d.t0))PT.done.push(d)});PT.done.sort((a,b)=>b.t1-a.t1);PT.done=PT.done.slice(0,150);sv('co',CO);sv('pt',PT);coachApply();draw()}catch(x){alert('Die Daten konnten nicht gelesen werden.')}}});
-function coachInfo(){const m=CO.m||{},x=CO.xg||{};return coachBil()+`<div style="padding:8px 0;border-top:1px solid #ffffff12"><b>📈 Vorhersage-Modell</b><br><small>${m.on?'aktiv – blockiert Einstiege mit Gewinnchance unter '+Math.round(m.th*100)+'% ('+(m.sn||0)+' geprüft, Qualität '+Math.round(m.q*100)+'%)':m.off?'abgeschaltet – blockierte zu viele Gewinner':m.n>=30?'lernt weiter (noch nicht besser als Zufall)':'sammelt Daten: '+(m.n||0)+' von 30 Trades'}</small></div><div style="padding:8px 0;border-top:1px solid #ffffff12"><b>🔒 Ausstiegs-Optimierer</b><br><small>${CO.ex?'aktiv: '+CO.ex.n+' – Stop auf '+(CO.ex.stop*100).toFixed(0)+'% sobald der Trade +'+(CO.ex.arm*100).toFixed(0)+'% erreicht hat':'testet Gewinn-Sicherungen und Take-Profit/Stop-Loss-Werte parallel zu jedem Trade'}${CO.tpsl?'<br>Ziele angepasst: Take-Profit +'+Math.round(CO.tpsl.tp*100)+'% · Stop-Loss −'+Math.round(CO.tpsl.sl*100)+'%':''}${Object.keys(x).length?'<br>Ø Vorteil je Trade: '+Object.entries(x).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([k,v])=>k+' '+(v>=0?'+':'')+(v*100).toFixed(1)+'%').join(' · '):''}</small></div>`}
+function coachInfo(){const m=CO.m||{},x=CO.xg||{};return coachBil()+`<div style="padding:8px 0;border-top:1px solid #ffffff12"><b>📈 Vorhersage-Modell</b><br><small>${m.on?'aktiv – blockiert Einstiege mit Gewinnchance unter '+Math.round(m.th*100)+'% ('+(m.sn||0)+' geprüft, Qualität '+Math.round(m.q*100)+'%)':m.off?'abgeschaltet – blockierte zu viele Gewinner':m.n>=20?'lernt weiter (noch nicht besser als Zufall)':'sammelt Daten: '+(m.n||0)+' von 20 Trades'}</small></div><div style="padding:8px 0;border-top:1px solid #ffffff12"><b>🔒 Ausstiegs-Optimierer</b><br><small>${CO.ex?'aktiv: '+CO.ex.n+' – Stop auf '+(CO.ex.stop*100).toFixed(0)+'% sobald der Trade +'+(CO.ex.arm*100).toFixed(0)+'% erreicht hat':'testet Gewinn-Sicherungen und Take-Profit/Stop-Loss-Werte parallel zu jedem Trade'}${CO.tpsl?'<br>Ziele angepasst: Take-Profit +'+Math.round(CO.tpsl.tp*100)+'% · Stop-Loss −'+Math.round(CO.tpsl.sl*100)+'%':''}${Object.keys(x).length?'<br>Ø Vorteil je Trade: '+Object.entries(x).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([k,v])=>k+' '+(v>=0?'+':'')+(v*100).toFixed(1)+'%').join(' · '):''}</small></div>`}
 const KF={score:['Score',v=>v.toFixed(0)],mcl:['MCap/Liq',v=>v.toFixed(0)+'×'],c5:['5-Min-Lauf',v=>v.toFixed(0)+'%'],c1:['1-Std-Lauf',v=>v.toFixed(0)+'%'],ratio:['Käuferanteil',v=>(v*100).toFixed(0)+'%'],liq:['Liquidität',F],age:['Alter',v=>v.toFixed(1)+' Std'],top10:['Top-10-Holder',v=>v.toFixed(0)+'%'],top1:['Größter Wallet',v=>v.toFixed(0)+'%'],hour:['Uhrzeit',v=>v.toFixed(0)+' Uhr'],act:['Transaktionen/h',v=>v.toFixed(0)],since:['Anstieg seit Erstsicht',v=>v.toFixed(0)+'%'],rep:['Kommentare',v=>v.toFixed(0)],soc:['Social-Links',v=>v.toFixed(0)+' von 3'],ser:['Weitere Coins des Erstellers',v=>v.toFixed(0)],v1l:['Volumen/Liq',v=>v.toFixed(1)+'×']};
 const HY=[['c5','>',20,'Einstieg nach starkem 5-Min-Lauf'],['c1','>',80,'Token war in 1h schon stark gelaufen'],['mcl','>',20,'Dünne Liquidität im Verhältnis zur MCap'],['ratio','<',.58,'Verkäuferdruck (wenig Käufer)'],['top10','>',30,'Hohe Holder-Konzentration'],['top1','>',15,'Ein Wallet dominiert'],['liq','<',2e4,'Wenig Liquidität'],['age','<',1,'Sehr junger Token'],['ser','>',1,'Ersteller startet serienweise Coins'],['soc','<',1,'Keine Social-Links']];
 const feat=r=>{const g=r.rug||{},n=x=>x==null||isNaN(x)?null:+(+x).toFixed(3);return{score:r.score,mcl:r.liq>0?n(r.mc/r.liq):null,c5:n(r.c5||0),c1:n(r.c1||0),ratio:n(r.ratio),hour:new Date().getHours(),act:(r.b||0)+(r.s||0),since:n((r.since||0)*100),...fx(r),liq:Math.round(r.liq),age:n(r.age),top10:n(g.top10),top1:n(g.top1),v1l:r.liq>0?n(r.v1/r.liq):null}};
@@ -156,20 +162,20 @@ function coachReview(){for(const u of CO.rules){if(u.s=='off')continue;const e=e
 function coachLearn(d){if(!d||!d.f)return;if(d.sol<0)coachPost(d);coachMine();coachReview();coachModel();coachExit();coachScore();sv('co',CO)}
 const wl=(l,n)=>{if(!n)return 0;const z=1.96,p=l/n;return(p+z*z/(2*n)-z*Math.sqrt(p*(1-p)/n+z*z/(4*n*n)))/(1+z*z/n)};
 function coachWait(r){const P=CO.pd=CO.pd||{},n=Date.now(),p=P[r.key];for(const k in P)if(n-P[k].t>18e4)delete P[k];
- if(!p){P[r.key]={t:n,mc:r.mc};return{k:'wait'}}if(n-p.t<PTC.confirm)return{k:'wait'};delete P[r.key];
- if(r.mc<p.mc*.95||r.mc>p.mc*1.12||(r.c5||0)<-3){const S=CO.hs=CO.hs||{};S['Bestätigung']=(S['Bestätigung']||0)+1;return{k:'confirm'}}return null}
+ if(!p){P[r.key]={t:n,mc:r.mc};return{k:'wait'}}if(n-p.t<QP('conf'))return{k:'wait'};delete P[r.key];
+ if(r.mc<p.mc*.95||r.mc>p.mc*(1+QP('band'))||(r.c5||0)<-3){const S=CO.hs=CO.hs||{};S['Bestätigung']=(S['Bestätigung']||0)+1;return{k:'confirm'}}return null}
 function coachScore(){const T=PT.done.filter(d=>d.score!=null),mean=x=>x.reduce((a,d)=>a+d.sol,0)/x.length;let best=70,bm=null;
  if(T.length>=25){const all=mean(T);for(const t of[70,75,80,85]){const A=T.filter(d=>d.score>t);if(A.length<12)continue;const h=Math.floor(A.length/2),m=mean(A);if(m>all+.005&&mean(A.slice(0,h))>=all&&mean(A.slice(h))>=all&&(bm==null||m>bm)){bm=m;best=t}}}
  CO.buy=best;PTC.buy=best}
-function coachHard(r){const L=PT.done.slice(0,2),fq=fx(r);if(fq.ser>=4)return'Serien-Ersteller';
- if(L.length==2&&L.every(d=>d.sol<0)&&Date.now()-L[0].t1<36e5)return'Verlustserie';
+function coachHard(r){const L=PT.done.slice(0,3),fq=fx(r);if(fq.ser>=4)return'Serien-Ersteller';
+ if(L.length==3&&L.every(d=>d.sol<0)&&Date.now()-L[0].t1<(QLv()?6e5:18e5))return'Verlustserie';
  if(PT.done.filter(d=>Date.now()-d.t1<864e5).reduce((a,d)=>a+d.sol,0)<=-PTC.dayLoss)return'Tageslimit';
  if(Object.keys(PT.open).length>=PTC.maxOpen)return'Max. offen';
  return rugOk(r)}
-function coachBil(){const bl=CO.bl||0,bw=CO.bw||0,hk=Object.entries(CO.hs||{}).sort((a,b)=>b[1]-a[1]).slice(0,3);return `<div style="padding:8px 0"><b>🛡 Coach-Bilanz</b><br><small>${+C.fs?'🎯 Final Stretch: '+FSM.size+' Tokens gesehen · Quelle: '+(FSS||'wartet')+'<br>':''}${(CO.ss||[]).length?'🔬 Labor: '+CO.ss.length+' Kandidaten ausgewertet, '+Math.round(CO.ss.filter(x=>x.w).length/CO.ss.length*100)+'% erreichten das Ziel<br>':''}${bl+bw?'Von '+(bl+bw)+' geblockten Einstiegen wären '+bl+' Verlierer ('+Math.round(bl/(bl+bw)*100)+'%) und '+bw+' Gewinner gewesen':'Noch keine geblockten Einstiege ausgewertet'}${hk.length?'<br>Sicherheits-Filter blockten: '+hk.map(([k,v])=>k+' '+v+'×').join(' · '):''}<br>Mindest-Score: '+PTC.buy+(CO.buy>70?' (vom Coach erhöht)':'')+' · Einstieg erst nach '+PTC.confirm/1000+' Sek. Bestätigung (Kurs darf nicht fallen oder davonlaufen)</small></div>`}
+function coachBil(){const bl=CO.bl||0,bw=CO.bw||0,hk=Object.entries(CO.hs||{}).sort((a,b)=>b[1]-a[1]).slice(0,3);return `<div style="padding:8px 0"><b>🛡 Coach-Bilanz</b><br><small>${+C.fs?'🎯 Final Stretch: '+FSM.size+' Tokens gesehen · Quelle: '+(FSS||'wartet')+'<br>':''}${(CO.ss||[]).length?'🔬 Labor: '+CO.ss.length+' Kandidaten ausgewertet, '+Math.round(CO.ss.filter(x=>x.w).length/CO.ss.length*100)+'% erreichten das Ziel<br>':''}${bl+bw?'Von '+(bl+bw)+' geblockten Einstiegen wären '+bl+' Verlierer ('+Math.round(bl/(bl+bw)*100)+'%) und '+bw+' Gewinner gewesen':'Noch keine geblockten Einstiege ausgewertet'}${hk.length?'<br>Sicherheits-Filter blockten: '+hk.map(([k,v])=>k+' '+v+'×').join(' · '):''}<br>⚡ Quota-Modus: ${(QLv(),QS.c)}/${QTG} Käufe in der letzten Stunde · Stufe ${QLv()}${QLv()?' (Filter gelockert)':''}<br>Mindest-Score: ${QBuy()}${CO.buy>70?' (vom Coach erhöht)':''} · Einstieg nach ${QP('conf')/1000} Sek. Bestätigung (Kurs darf nicht fallen oder zu weit davonlaufen)</small></div>`}
 function coachGate(r){const hw=coachHard(r);if(hw){const H=CO.hd=CO.hd||{},S=CO.hs=CO.hs||{},n=Date.now();if(!H[r.key]||n-H[r.key]>18e5){H[r.key]=n;S[hw]=(S[hw]||0)+1;if(Object.keys(H).length>300)CO.hd={}}return{k:'hard'}}const f=feat(r);for(const u of CO.rules){if(u.s!='on'||!rt(u,f))continue;
   const o0=CO.sh.find(x=>x.key==r.key&&x.u=='obs');if(o0){o0.u=u.id;u.b=(u.b||0)+1}else if(!CO.sh.some(x=>x.key==r.key)&&!CO.dn[r.key]&&CO.sh.length<60){u.b=(u.b||0)+1;CO.sh.push({key:r.key,chain:r.chain,addr:r.addr,mc0:r.mc,t0:Date.now(),u:u.id,last:r.mc,f});sv('co',CO)}return u}
- if(CO.m&&CO.m.on&&mP(CO.m,f)<CO.m.th){const o1=CO.sh.find(x=>x.key==r.key&&x.u=='obs');if(o1)o1.u='model';else if(!CO.sh.some(x=>x.key==r.key)&&!CO.dn[r.key]&&CO.sh.length<60){CO.sh.push({key:r.key,chain:r.chain,addr:r.addr,mc0:r.mc,t0:Date.now(),u:'model',last:r.mc,f});sv('co',CO)}return{k:'model'}}return coachWait(r)}
+ if(CO.m&&CO.m.on&&mP(CO.m,f)<CO.m.th*[1,1,.6,.35][QLv()]){const o1=CO.sh.find(x=>x.key==r.key&&x.u=='obs');if(o1)o1.u='model';else if(!CO.sh.some(x=>x.key==r.key)&&!CO.dn[r.key]&&CO.sh.length<60){CO.sh.push({key:r.key,chain:r.chain,addr:r.addr,mc0:r.mc,t0:Date.now(),u:'model',last:r.mc,f});sv('co',CO)}return{k:'model'}}return coachWait(r)}
 function coachTick(){if(!CO.sh.length)return;const M={};R.forEach(r=>M[r.key]=r);const now=Date.now();let ch=0;
  CO.sh=CO.sh.filter(x=>{const r=M[x.key];if(r){x.last=r.mc;x.seen=now}else if(now-(x.seen||x.t0)>18e4)return false;const p=x.last/x.mc0-1,age=now-x.t0;let loss=null;
   if(r&&x.lq&&r.liq<x.lq*.6)loss=true;else if(p>=PTC.tp)loss=false;else if(p<=-PTC.sl)loss=true;else if(age>72e4)loss=p-.06<0;else return true;
@@ -253,13 +259,13 @@ function botOk(r){const L=PT.done.slice(0,2);
  return''}
 function rugOk(r){const fs=r.fs;
  if(r.flags.some(f=>/^RISIKO|WHALE|MINT|FREEZE|LP RISK|LP UNLOCKED|HONEYPOT|DEV HÄLT|COPYCAT|DÜNNE LIQ|VERKÄUFER|DUMP|RC OFFLINE|LIQ-DROP/.test(f)&&!(fs&&/WHALE|LP RISK|LP UNLOCKED|DÜNNE LIQ/.test(f))))return'Rug-Flag';
- if(r.age!=null&&r.age<(fs?.1:PTC.minAge))return'zu jung';
- if(r.liq<(fs?4e3:PTC.minLiq))return'Liquidität';
- if(!fs&&r.liq>0&&r.mc/r.liq>PTC.maxMcLiq)return'dünne Liquidität';
+ if(r.age!=null&&r.age<(fs?.1:QP('minAge')))return'zu jung';
+ if(r.liq<(fs?4e3:QP('minLiq')))return'Liquidität';
+ if(!fs&&r.liq>0&&r.mc/r.liq>QP('mcl'))return'dünne Liquidität';
  if(r.chain=='solana'){const g=r.rug;if(!g||g.score==null)return'Rug-Daten fehlen';
   if(g.rugged)return'Als Rug markiert';if(g.mint)return'Mint aktiv';if(g.freeze)return'Freeze aktiv';if(g.tf>PTC.tfee)return'Transfer-Steuer';
-  if(g.top10!=null&&g.top10>(fs?55:PTC.top10))return'Top-10-Holder';if(!fs&&g.top1!=null&&g.top1>PTC.top1)return'Ein Wallet zu groß';
-  if(g.insPct>PTC.ins)return'Insider-Holder';if(g.holders!=null&&g.holders<(fs?30:PTC.holdMin))return'Zu wenige Holder';
+  if(g.top10!=null&&g.top10>(fs?55:QP('top10')))return'Top-10-Holder';if(!fs&&g.top1!=null&&g.top1>QP('top1'))return'Ein Wallet zu groß';
+  if(g.insPct>QP('ins'))return'Insider-Holder';if(g.holders!=null&&g.holders<(fs?30:QP('hold')))return'Zu wenige Holder';
   if(!fs&&g.lpLocked!=null&&g.lpLocked<50)return'LP nicht gesperrt'}
  return''}
 let FSX={},FSC={};const fx=r=>{const x=FSX[r.addr];return x?{rep:x.rep,soc:x.soc,ser:x.cr&&FSC[x.cr]?FSC[x.cr].size-1:0}:{}};
@@ -344,7 +350,7 @@ async function scan(){if(SCANNING)return;SCANNING=true;try{
    const mx=Math.max(...h.map(x=>x[1]));if(h.length>=3&&mx>0&&r.liq<mx*.75){r.flags.push('LIQ-DROP');r.score=Math.max(0,r.score-25)}});
   for(const k in LQH)if(!best[k]&&now-LQH[k][LQH[k].length-1][0]>3e5)delete LQH[k]}
  try{coachTick();coachObserve()}catch(e){}
- {const now=Date.now();for(const r of R){if(r.score<=PTC.buy||PT.open[r.key]||!hit(r))continue;
+ {const now=Date.now();for(const r of [...R].sort((a,b)=>QPri(b)-QPri(a))){if(r.score<=QBuy()||PT.open[r.key]||!hitQ(r))continue;
    if(PT.done.some(d=>d.addr==r.addr&&now-d.t1<3e5)||ptStats().free<PTC.size-1e-9)continue;
    if(coachGate(r))continue;ptBuy(r)}}
  R.forEach(r=>{if(r.mc>=5e4&&!(LK[r.key]&&LK[r.key].length))r.flags.push('KEINE SOCIALS')});
