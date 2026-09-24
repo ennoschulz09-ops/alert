@@ -218,7 +218,7 @@ document.onclick=e=>{if(e.target.id=='mo'||e.target.closest('[data-m]')){$('#mo'
  if(d.s){W.has(d.s)?W.delete(d.s):W.add(d.s);sv('w',[...W])}
  if(d.z){SNZ[d.z]?delete SNZ[d.z]:SNZ[d.z]=Date.now()+432e5;sv('snz',SNZ)}
  if(d.ch){CE.includes(d.ch)?CE=CE.filter(c=>c!=d.ch):CE.push(d.ch);if(!CE.length)CE=[...CHAINS];sv('ce',CE)}
- if(d.p){Object.assign(C,PR[d.p]);sv('c',C);document.querySelectorAll('[data-cf]').forEach(i=>i.value=C[i.dataset.cf])}if(d.c){cp(d.c);return}draw()};
+ if(d.p){Object.assign(C,PR[d.p]);sv('c',C);document.querySelectorAll('[data-cf]').forEach(i=>i.value=C[i.dataset.cf])}if(d.c){cp(d.c);const u='https://axiom.trade/t/'+encodeURIComponent(d.c);if(!window.open(u,'_blank'))location.href=u;return}draw()};
 $('#q').oninput=$('#rk').oninput=draw;
 $('#fq').oninput=renderFeed;
 $('#cf').innerHTML=CF.map(([k,n,t])=>`<label>${n}<input data-cf="${k}" type="${t||'number'}" ${t?'':'step=any'} value="${C[k]}"></label>`).join('');
