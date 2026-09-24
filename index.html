@@ -286,13 +286,16 @@ async function wSync(force){if(!C.botUrl||!C.botKey)return;const ks=Object.keys(
  try{await fetch(C.botUrl.replace(/\/$/,'')+'/sync',{method:'POST',headers:{'x-key':C.botKey,'content-type':'application/json'},body:JSON.stringify({open:PT.open,cfg:PTC})})}catch(e){}}
 async function wPull(){if(!C.botUrl||!C.botKey)return;try{const r=await fetch(C.botUrl.replace(/\/$/,'')+'/state',{headers:{'x-key':C.botKey}});if(!r.ok)return;const w=await r.json();let ch=0;
  for(const d of w.done||[]){if(PT.done.some(x=>x.addr+x.t0==d.addr+d.t0)||d.t0<(PT.rs||0))continue;PT.done.unshift(d);delete PT.open[d.chain+':'+d.addr];ch=1}
- for(const k in w.open||{}){const t=PT.open[k],o=w.open[k];if(!t)continue;t.peak=Math.max(t.peak||0,o.peak||0);t.lo=Math.min(t.lo||t.mc0,o.lo||t.mc0);if((o.tk||[]).length>(t.tk||[]).length)t.tk=o.tk;t.x=t.x||{};for(const a in o.x||{})if(t.x[a]==null&&o.x[a]!=null)t.x[a]=o.x[a]}
+ for(const k in w.open||{}){const t=PT.open[k],o=w.open[k];
+  if(!t){if(o.origin=='bot'){PT.open[k]={...o};ch=1}continue} // vom Worker eröffneter Trade -> übernehmen (App verkauft ihn nicht selbst)
+  t.peak=Math.max(t.peak||0,o.peak||0);t.lo=Math.min(t.lo||t.mc0,o.lo||t.mc0);if((o.tk||[]).length>(t.tk||[]).length)t.tk=o.tk;t.x=t.x||{};for(const a in o.x||{})if(t.x[a]==null&&o.x[a]!=null)t.x[a]=o.x[a]}
  if(ch){PT.done.sort((a,b)=>b.t1-a.t1);PT.done=PT.done.slice(0,150)}sv('pt',PT);if(ch)draw()}catch(e){}}
 setInterval(wPull,2e4);setInterval(wSync,6e4);
 function ptBuy(r){PT.open[r.key]={sym:r.sym,chain:r.chain,addr:r.addr,mc0:r.mc,last:r.mc,t0:Date.now(),score:r.score,peak:r.mc,liq0:r.liq,f:feat(r),slip:(r.liq<2e4?.05:r.liq<5e4?.03:.015)+Math.min(.03,Math.max(0,r.c5||0)*.0005),x:{FIX20:null,FIX30:null}};sv('pt',PT);wSync(1)}
 function ptConfirm(){const P=PT.pend;if(!P)return;for(const k of Object.keys(P)){const p=P[k];if(Date.now()-p.t<PTC.confirm)continue;delete P[k];const r=R.find(x=>x.key==k),w=!r?'Bestätigung':PT.open[k]?'':(r.mc<p.mc*.95||r.mc>p.mc*1.12||(r.c5||0)<-3)?'Bestätigung':botOk(r)||(ptStats().free<PTC.size-1e-9?'Kein Kapital':'');
  if(w){PT.sk=PT.sk||{};PT.sk[w]=(PT.sk[w]||0)+1;sv('pt',PT)}else if(r&&!PT.open[k])ptBuy(r);else sv('pt',PT)}}
 function ptTick(best){let n=0;for(const k of Object.keys(PT.open)){const t=PT.open[k],p=best[k],mc=p?(p.marketCap||p.fdv||0):0;if(mc>0)t.last=mc;const pnl=t.last/t.mc0-1;
+  if(t.origin=='bot')continue; // nur Anzeige aktualisieren, Verkauf entscheidet ausschließlich der Worker
   if(mc>0){t.peak=Math.max(t.peak||t.mc0,mc);t.lo=Math.min(t.lo||t.mc0,mc);const X=t.x||(t.x={});for(const a of [['FIX20',.2,.2],['FIX30',.3,.15]])if(X[a[0]]==null){if(pnl>=a[1])X[a[0]]=a[1];else if(pnl<=-a[2])X[a[0]]=pnl}const K=t.tk||(t.tk=TK(t).slice());for(const st of PTC.stages)if(pnl>=st[0]&&!K.some(x=>x.p==st[0]))K.push({p:st[0],f:st[1]})}
   if(mc>0)coachAlt(t,pnl);const lq=p&&p.liquidity?+p.liquidity.usd||0:0,fl=Math.max(PTC.floor,2*(PTC.fee+(t.slip||0))+.03),pk=(t.peak||t.mc0)/t.mc0-1,m5=p&&p.priceChange?+p.priceChange.m5||0:0,trl=pk>=.4?PTC.tr2:PTC.tr,armed=pk>=PTC.arm;let w=null;
   if(mc>0&&pnl>=PTC.tp)w='TP';else if(mc>0&&pnl<=-PTC.sl)w='SL';else if(mc>0&&CO.ex&&pk>=CO.ex.arm&&pnl<=CO.ex.stop)w='LOCK';
