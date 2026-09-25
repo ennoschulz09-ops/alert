@@ -3,7 +3,12 @@
 // Reihenfolge ist wichtig: diese Dateien werden in genau dieser Reihenfolge geladen
 // und teilen sich (wie vorher) denselben globalen Scope - nichts wurde inhaltlich veraendert.
 
-async function scan(){if(SCANNING)return;SCANNING=true;try{
+async function scan(){
+ // Notbremse: bleibt SCANNING trotz der Timeouts oben mal länger als 30s hängen
+ // (z.B. Tab war im Hintergrund/Bildschirm gesperrt), wird der alte Lauf verworfen
+ // statt die App für immer auf "Keine Live-Daten" stehen zu lassen.
+ if(SCANNING){if(Date.now()-SCANST<3e4)return;SCANNING=false}
+ SCANNING=true;SCANST=Date.now();try{
  let ad=[],bo=new Set(),best={};const fe=Date.now()-FT>(AD.length?8e3:2e3);if(fe)FT=Date.now();
  if(fe)for(const [p,b] of [['/token-profiles/latest/v1',0],['/token-boosts/latest/v1',1],['/token-boosts/top/v1',1]])try{const j=(await J(p)).filter(x=>CHAINS.includes(x.chainId));
   j.forEach(x=>{if(x.links&&x.links.length)LK[x.chainId+':'+x.tokenAddress]=x.links});
