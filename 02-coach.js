@@ -175,13 +175,26 @@ function st(p,bo){const v=p.volume||{},c=p.priceChange||{},t=(p.txns||{}).h1||{}
  r.fs=FSM.has(a)||r.dex=='pumpfun';r.flags=fl(r);if(r.fs)r.flags.push('FINAL STRETCH');r.score=sc(r);r.rug=null;
  if(chain=='solana'&&r.score>=45){const rc=rcCheck(a);if(rc){r.rug=rc;if(rc.score==null&&!(rc.risks||[]).length)r.flags.push('RC OFFLINE');if(rc.risks&&rc.risks.length){const rf=rcFlags(rc);r.flags=r.flags.concat(rf);r.score=Math.max(0,r.score-8*Math.min(3,rf.length))}}}
  return r}
-const A='https://api.dexscreener.com',J=async p=>{try{const r=await fetch(A+p);if(!r.ok)throw new Error('HTTP '+r.status);return await r.json()}catch(e){LE=e.message||String(e);throw e}};
+// Timeout-Wrapper: bricht eine Anfrage nach `ms` Millisekunden ab, statt sie bei
+// schlechter/schwankender Verbindung endlos hängen zu lassen. Ohne das konnte ein
+// einzelner nie beantworteter fetch() den ganzen scan()-Durchlauf für immer blockieren
+// (SCANNING blieb dann dauerhaft true -> "Keine Live-Daten" für immer, auch wenn das
+// Netz sich längst wieder erholt hatte).
+async function fetchT(url,opts,ms){ms=ms||10000;const ctrl=new AbortController(),to=setTimeout(()=>ctrl.abort(),ms);
+ try{return await fetch(url,Object.assign({},opts,{signal:ctrl.signal}))}finally{clearTimeout(to)}}
+// Retry mit kurzer, steigender Pause: ein einzelner Ausrutscher (Timeout, Rate-Limit,
+// kurzer Netzwerk-Hänger) wird automatisch 1x wiederholt, bevor er als Fehler zählt.
+async function fetchRetry(url,opts,tries,ms){tries=tries||2;let lastErr;
+ for(let i=0;i<tries;i++){try{const r=await fetchT(url,opts,ms);if(!r.ok)throw new Error('HTTP '+r.status);return r}
+  catch(e){lastErr=e;if(i<tries-1)await new Promise(res=>setTimeout(res,500*(i+1)))}}
+ throw lastErr}
+const A='https://api.dexscreener.com',J=async p=>{try{const r=await fetchRetry(A+p,{},2,10000);return await r.json()}catch(e){LE=e.name=='AbortError'?'Zeitüberschreitung (Verbindung zu langsam)':(e.message||String(e));throw e}};
 const GT='https://api.geckoterminal.com/api/v2';
 // GTPOOL merkt sich, welche Pool-Adresse zu welchem Token gehört (chain:tokenAddr -> poolAddr).
 // Das braucht der Fallback unten, weil GeckoTerminals Kennzahlen (Liquidität, 5m/1h-Änderung,
 // Buys/Sells) am Pool hängen, nicht direkt am Token.
 let GTPOOL={};
-async function gtPools(chain){try{const r=await fetch(GT+'/networks/'+chain+'/new_pools?page=1');if(!r.ok)return[];const j=await r.json();
+async function gtPools(chain){try{const r=await fetchT(GT+'/networks/'+chain+'/new_pools?page=1',{},8000);if(!r.ok)return[];const j=await r.json();
  return(j.data||[]).map(p=>{const id=p.relationships&&p.relationships.base_token&&p.relationships.base_token.data&&p.relationships.base_token.data.id;if(!id)return null;const addr=id.startsWith(chain+'_')?id.slice(chain.length+1):id;
   const poolId=p.id,poolAddr=poolId&&poolId.startsWith(chain+'_')?poolId.slice(chain.length+1):poolId;if(poolAddr)GTPOOL[chain+':'+addr]=poolAddr;
   return{chain,addr}}).filter(Boolean)}catch(e){return[]}}
