@@ -17,7 +17,7 @@ async function gtFallback(chain,addrs){
  for(let i=0;i<known.length;i+=30){
   const batch=known.slice(i,i+30);
   try{
-   const r=await fetch(GT+'/networks/'+chain+'/pools/multi/'+batch.map(x=>x.p).join(','));
+   const r=await fetchT(GT+'/networks/'+chain+'/pools/multi/'+batch.map(x=>x.p).join(','),{},8000);
    if(!r.ok){GTFAIL++;continue}
    const j=await r.json();GTFAIL=0;
    for(const d of (j.data||[])){
@@ -140,6 +140,6 @@ function ping(r,tag,kind){const NOW=Date.now();FD.unshift({ts:NOW,t:new Date(NOW
   const f=()=>{try{new Notification(tag,{body:b})}catch(e){}};navigator.serviceWorker?navigator.serviceWorker.ready.then(g=>g.showNotification(tag,{body:b})).catch(f):f()}
  if(C.tgToken&&C.tgChat&&(r.score>=(+C.tgMin||0)||tag.startsWith('⭐'))){const txt='🕐 '+tm(NOW)+' Uhr · '+dl(NOW)+'\n'+tag+' '+r.sym+' ('+CHN[r.chain]+')\nMC '+F(r.mc)+' · Score '+r.score+' · Liq '+F(r.liq)+'\nhttps://dexscreener.com/'+r.chain+'/'+r.addr+'\n'+r.addr;
   fetch('https://api.telegram.org/bot'+C.tgToken+'/sendMessage',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({chat_id:C.tgChat,text:txt,reply_markup:{inline_keyboard:[[{text:'Chart',url:'https://dexscreener.com/'+r.chain+'/'+r.addr},{text:'RugCheck',url:'https://rugcheck.xyz/tokens/'+r.addr}]]}})}).catch(()=>{})}}
-let LQH={},AD=[],BO=new Set(),FT=0,SPT=0,SVT=0,VPT=0,LT=0,SCANNING=false,VH={},LS=0;
+let LQH={},AD=[],BO=new Set(),FT=0,SPT=0,SVT=0,VPT=0,LT=0,SCANNING=false,SCANST=0,VH={},LS=0;
 let BWR=null,BWT=ld('bwt',0)||Date.now();
 const WINDOW_MS=120000;
