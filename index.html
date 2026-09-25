@@ -89,10 +89,10 @@ const tm=ts=>new Date(ts).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-d
 const al2=x=>FD.find(f=>f.key==x.key&&f.ts);
 const ld=(k,d)=>{try{return JSON.parse(localStorage[k])}catch(e){return d}},sv=(k,v)=>{try{localStorage[k]=JSON.stringify(v)}catch(e){}};
 const CHAINS=['solana'],CHN={solana:'SOL'};
-const CF=[['liq','Min. Liquidität $'],['vol','Min. Vol 1h $'],['mmin','Min. MCap $'],['mmax','Max. MCap $'],['ratio','Min. Käuferanteil (0-1)'],['score','Min. Score'],['fs','Final-Stretch-Modus (1=an, 0=aus)'],['cooldown','Cooldown (Minuten)'],['watchPct','Watchlist-Alarm ab % Bewegung'],['devMax','Max. Dev-Wallet-Anteil %'],['quietFrom','Ruhe ab Stunde (0-23, leer=aus)'],['quietTo','Ruhe bis Stunde (0-23)'],['sound','Ton (1/0)'],['minAge','Neu-Token-Sperre (Min. nach Launch)'],['tgMin','Telegram ab Score'],['tgToken','Telegram Bot-Token','text'],['tgChat','Telegram Chat-ID','text'],['workerUrl','Cloudflare-Worker-URL (für Server-Push)','text'],['vapidKey','VAPID Public Key (vom Worker)','text'],['botUrl','Bot-Worker-URL (24/7-Betrieb)','text'],['botKey','Bot-Passwort (24/7-Betrieb)','text']];
+const CF=[['liq','Min. Liquidität $'],['vol','Min. Vol 1h $'],['mmin','Min. MCap $'],['mmax','Max. MCap $'],['ratio','Min. Käuferanteil (0-1)'],['score','Min. Score'],['fs','Final-Stretch-Modus (1=an, 0=aus)'],['cooldown','Cooldown (Minuten)'],['watchPct','Watchlist-Alarm ab % Bewegung'],['devMax','Max. Dev-Wallet-Anteil %'],['quietFrom','Ruhe ab Stunde (0-23, leer=aus)'],['quietTo','Ruhe bis Stunde (0-23)'],['sound','Ton (1/0)'],['minAge','Neu-Token-Sperre (Min. nach Launch)'],['tgMin','Telegram ab Score'],['tgToken','Telegram Bot-Token','text'],['tgChat','Telegram Chat-ID','text'],['workerUrl','Cloudflare-Worker-URL (für Server-Push)','text'],['vapidKey','VAPID Public Key (vom Worker)','text'],['botUrl','Bot-Worker-URL (24/7-Betrieb)','text'],['botKey','Bot-Passwort (24/7-Betrieb)','text'],['live','⚠️ ECHTER Handel mit echtem Geld (1=an, 0=aus)']];
 const PR={Konservativ:{liq:3e4,vol:5e4,mmin:1e5,mmax:1e7,ratio:.6,score:75},Ausgewogen:{liq:1e4,vol:2e4,mmin:5e4,mmax:5e6,ratio:.55,score:55},Aggressiv:{liq:5e3,vol:1e4,mmin:2e4,mmax:5e6,ratio:.5,score:55}};
 const DM=40;
-let C={liq:1e4,vol:2e4,mmin:5e4,mmax:5e6,ratio:.55,score:55,cooldown:30,watchPct:15,devMax:15,quietFrom:'',quietTo:'',sound:1,tgToken:'',tgChat:'',workerUrl:'',vapidKey:'',botUrl:'',botKey:'',tgMin:80,minAge:6,fs:1};Object.assign(C,ld('c',{}));if(+C.score===60)C.score=55;C.score=Math.max(55,+C.score||55);
+let C={liq:1e4,vol:2e4,mmin:5e4,mmax:5e6,ratio:.55,score:55,cooldown:30,watchPct:15,devMax:15,quietFrom:'',quietTo:'',sound:1,tgToken:'',tgChat:'',workerUrl:'',vapidKey:'',botUrl:'',botKey:'',live:0,tgMin:80,minAge:6,fs:1};Object.assign(C,ld('c',{}));if(+C.score===60)C.score=55;C.score=Math.max(55,+C.score||55);
 if(ld('wipe',0)<1){['pt','tr','stz','stzh','rc','h','fd','s2','snz','wv','bwt'].forEach(k=>{try{localStorage.removeItem(k)}catch(e){}});sv('pt',{open:{},done:[],rs:Date.now()});sv('wipe',1)}
 const inQuiet=()=>{if(C.quietFrom===''||C.quietTo===''||C.quietFrom==null||C.quietTo==null)return false;const h=new Date().getHours(),f=+C.quietFrom,t=+C.quietTo;return f<t?(h>=f&&h<t):(h>=f||h<t)};
 let LK={},view='home',LE='',R=[],FD=ld('fd',[]),SP={},KN=null,bad=0,nxt=0,key='score',dir=-1;
@@ -125,6 +125,84 @@ function coachExit(){const T=PT.done.filter(d=>d.alt&&d.alt.FIX20!=null&&d.alt.B
  CO.tpsl=b2?{n:b2,tp:EXG[b2][0],sl:EXG[b2][1]}:null;coachApply()}
 const EXG={};[.15,.2,.3].forEach(tp=>[.12,.15,.2].forEach(sl=>{if(!(tp==.2&&sl==.2))EXG['T'+Math.round(tp*100)+'S'+Math.round(sl*100)]=[tp,sl]}));
 function coachApply(){PTC.buy=CO.buy||70;PTC.tp=CO.tpsl?CO.tpsl.tp:.2;PTC.sl=CO.tpsl?CO.tpsl.sl:.2}coachApply();PTC.size=ld('ptsize',PTC.size);
+const STRATS=[
+ {id:'con',name:'Konservativ',cfg:{score:75,liq:3e4,vol:5e4,mmin:1e5,mmax:1e7,ratio:.6,maxRun:25,tp:.2,sl:.15}},
+ {id:'aus',name:'Ausgewogen',cfg:{score:55,liq:1e4,vol:2e4,mmin:5e4,mmax:5e6,ratio:.55,maxRun:40,tp:.2,sl:.2}},
+ {id:'agg',name:'Aggressiv',cfg:{score:45,liq:5e3,vol:1e4,mmin:2e4,mmax:5e6,ratio:.5,maxRun:60,tp:.25,sl:.25}},
+ {id:'akt',name:'Meine App-Einstellung',cfg:null}
+];
+let ST=ld('strats',{});STRATS.forEach(S=>ST[S.id]=ST[S.id]||{open:{},done:[],start:2});
+
+// ---- Ersteller-/Wallet-Tracking ----
+let CRW=ld('crw',{});
+function crTrack(addr,sol){const cr=(FSX[addr]||{}).cr;if(!cr)return;const c=CRW[cr]=CRW[cr]||{n:0,w:0,sol:0,syms:[]};c.n++;if(sol>0)c.w++;c.sol+=sol;sv('crw',CRW)}
+function crHtml(){const rows=Object.entries(CRW).filter(([,c])=>c.n>=2).sort((a,b)=>b[1].sol-a[1].sol);
+ if(!rows.length)return`<div class=cd><div class=ch><b>👤 Ersteller-Tracking</b></div><small style="color:var(--m)">Noch keine Ersteller mit 2+ Trades erkannt. Braucht Final-Stretch-Modus (Einstellungen) aktiv, um Ersteller-Adressen zu sehen.</small></div>`;
+ return `<div class=cd><div class=ch><b>👤 Ersteller-Tracking</b><span class=ag>nach Gewinn sortiert</span></div>`+
+  rows.slice(0,8).map(([cr,c])=>{const wr=Math.round(c.w/c.n*100),tag=c.n>=3&&wr<=30?'⚠️ oft Verlust':c.n>=3&&wr>=70?'✅ oft Gewinn':'';
+   return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #ffffff12"><span>${X(cr.slice(0,4)+'…'+cr.slice(-4))}<br><small style="color:var(--m)">${c.n} Coins · ${wr}% Trefferquote ${tag}</small></span><span style="color:${c.sol>=0?'var(--g)':'#ff5d73'};font-weight:700">${c.sol>=0?'+':'−'}${Math.abs(c.sol).toFixed(3)} SOL</span></div>`}).join('')+`</div>`}
+
+// ---- Feature-Wichtigkeit & Win-Rate-Analyse ----
+function corr(xs,ys){const n=xs.length;if(n<8)return null;const mx=xs.reduce((a,v)=>a+v,0)/n,my=ys.reduce((a,v)=>a+v,0)/n;
+ let sxy=0,sx=0,sy=0;for(let i=0;i<n;i++){const dx=xs[i]-mx,dy=ys[i]-my;sxy+=dx*dy;sx+=dx*dx;sy+=dy*dy}return(sx&&sy)?sxy/Math.sqrt(sx*sy):null}
+function featImpHtml(){const S=smp();if(S.length<10)return`<div class=cd><div class=ch><b>📊 Feature-Wichtigkeit</b></div><small style="color:var(--m)">Sammle noch Daten (${S.length}/10 Trades)</small></div>`;
+ const keys=Object.keys(KF),imp=[];for(const k of keys){const xs=[],ys=[];S.forEach(s=>{const v=s.f&&s.f[k];if(v!=null){xs.push(v);ys.push(s.l?0:1)}});const c=corr(xs,ys);if(c!=null)imp.push({k,c,n:xs.length})}
+ imp.sort((a,b)=>Math.abs(b.c)-Math.abs(a.c));
+ const sb=[[40,55],[55,65],[65,75],[75,101]].map(([a,b])=>{const t=S.filter(s=>s.f&&s.f.score>=a&&s.f.score<b);return{a,b,n:t.length,wr:t.length?Math.round(t.filter(s=>!s.l).length/t.length*100):null}});
+ const hb=[['Nacht',0,6],['Morgen',6,12],['Mittag',12,18],['Abend',18,24]].map(([n,a,b])=>{const t=S.filter(s=>s.f&&s.f.hour>=a&&s.f.hour<b);return{n,c:t.length,wr:t.length?Math.round(t.filter(s=>!s.l).length/t.length*100):null}});
+ return `<div class=cd><div class=ch><b>📊 Feature-Wichtigkeit</b><span class=ag>Richtwert, kein Beweis</span></div>`+
+  imp.slice(0,6).map(x=>`<div style="display:flex;justify-content:space-between;padding:4px 0"><small>${KF[x.k][0]}</small><small style="color:${x.c>0?'var(--g)':'#ff5d73'}">${x.c>0?'↑ höher = mehr Gewinne':'↓ höher = mehr Verluste'} (${(Math.abs(x.c)*100).toFixed(0)}%, n=${x.n})</small></div>`).join('')+
+  `<div style="margin-top:8px;padding-top:8px;border-top:1px solid #ffffff12"><small><b>Win-Rate nach Score</b></small><br>${sb.map(b=>b.n?`${b.a}-${b.b<101?b.b:'+'}: ${b.wr}% (${b.n})`:'').filter(Boolean).join(' · ')}</div>`+
+  `<div style="margin-top:6px"><small><b>Win-Rate nach Tageszeit</b></small><br>${hb.map(b=>b.c?`${b.n}: ${b.wr}% (${b.c})`:'').filter(Boolean).join(' · ')}</div></div>`}
+
+// ---- KI Walk-Forward-Test ----
+let WFC={n:-1,res:null};
+function walkForward(){const S=smp().slice().reverse().map(s=>({f:s.f,w:!s.l,t:s.t}));if(S.length<20)return null;if(S.length==WFC.n)return WFC.res;
+ const folds=4,size=Math.floor(S.length/folds),res=[];
+ for(let i=1;i<folds;i++){const trEnd=size*i,teEnd=i==folds-1?S.length:size*(i+1),train=S.slice(0,trEnd),test=S.slice(trEnd,teEnd);if(test.length<3)continue;
+  const ens=mFitBag(train,5),evP=f=>{const x=mF(f);let s=0;for(const sub of ens)s+=mS(sub.b+x.reduce((a,v,j)=>a+v*sub.w[j],0));return s/ens.length};
+  const brier=test.reduce((a,s)=>a+(evP(s.f)-(s.w?1:0))**2,0)/test.length,baseWR=train.filter(s=>s.w).length/train.length,baseBrier=test.reduce((a,s)=>a+(baseWR-(s.w?1:0))**2,0)/test.length;
+  res.push({fold:i,n:test.length,q:baseBrier?Math.round((1-brier/baseBrier)*100):null})}
+ WFC={n:S.length,res};return res}
+function walkHtml(){const r=walkForward();if(!r)return`<small style="color:var(--m)">Walk-Forward-Test braucht mind. 20 abgeschlossene Trades.</small>`;
+ const ok=r.filter(x=>x.q!=null&&x.q>0).length;
+ return `<div style="margin-top:8px;padding-top:8px;border-top:1px solid #ffffff12"><small><b>🔁 Walk-Forward-Test</b> (nur auf jeweils älteren Daten trainiert)</small><br>`+
+  r.map(x=>`Fenster ${x.fold}: ${x.q==null?'zu wenig Daten':x.q+'% besser als Zufall'} (${x.n} Trades)`).join('<br>')+
+  `<br><small style="color:var(--m)">${ok==r.length?'Modell hält sich in allen Fenstern out-of-sample.':'Nicht in jedem Fenster besser als Zufall — Vorsicht vor Überanpassung.'}</small></div>`}
+
+// ---- Auto-Optimierer für Strategien ----
+function optSamples(){const out=[];PT.done.forEach(d=>out.push({score:d.score,c5:d.f?d.f.c5:null,sol:d.sol}));
+ STRATS.forEach(S=>ST[S.id].done.forEach(d=>out.push({score:d.score,c5:d.c5,sol:d.sol})));return out}
+function optimizeHtml(){const S=optSamples();if(S.length<15)return`<div class=cd><div class=ch><b>🎯 Auto-Optimierer</b></div><small style="color:var(--m)">Sammle noch Daten (${S.length}/15 Trades über alle Strategien)</small></div>`;
+ const gscore=[40,50,55,60,65,70,75,80,85].map(th=>{const t=S.filter(s=>s.score>=th);return{th,n:t.length,sol:t.reduce((a,d)=>a+d.sol,0)}}).filter(x=>x.n>=5).sort((a,b)=>b.sol-a.sol);
+ const gc5=[20,30,40,60,80,999].map(th=>{const t=S.filter(s=>s.c5==null||s.c5<th);return{th,n:t.length,sol:t.reduce((a,d)=>a+d.sol,0)}}).filter(x=>x.n>=5).sort((a,b)=>b.sol-a.sol);
+ const cur=+PTC.buy||70,curSet=S.filter(s=>s.score>=cur),curSol=curSet.reduce((a,d)=>a+d.sol,0);
+ return `<div class=cd><div class=ch><b>🎯 Auto-Optimierer</b><span class=ag>rückblickend, kein Garant für die Zukunft</span></div>`+
+  `<small>Aktueller Mindest-Score ${cur}: ${curSol>=0?'+':'−'}${Math.abs(curSol).toFixed(3)} SOL (${curSet.length} Trades)</small>`+
+  (gscore.length?`<div style="margin-top:6px"><small><b>Beste Mindest-Score-Werte</b></small><br>${gscore.slice(0,3).map(x=>`Score ≥ ${x.th}: ${x.sol>=0?'+':'−'}${Math.abs(x.sol).toFixed(3)} SOL (${x.n} Trades)`).join('<br>')}</div>`:'')+
+  (gc5.length?`<div style="margin-top:6px"><small><b>Bester Max. 5-Min-Lauf</b></small><br>${gc5.slice(0,3).map(x=>`unter ${x.th>500?'∞':x.th+'%'}: ${x.sol>=0?'+':'−'}${Math.abs(x.sol).toFixed(3)} SOL (${x.n} Trades)`).join('<br>')}</div>`:'')+
+  `</div>`}
+const stratCfg=S=>S.cfg||{score:QBuy(),liq:C.liq,vol:C.vol,mmin:C.mmin,mmax:C.mmax,ratio:C.ratio,maxRun:PTC.maxRun,tp:PTC.tp,sl:PTC.sl};
+const STSZ=.2,STMAX=5,STCD=3e5,STTO=72e5;
+function stratHit(cfg,r){if((r.flags||[]).some(f=>/MINT|FREEZE|HONEYPOT|VERKÄUFER|DUMP|LIQ-DROP/.test(f)))return false;
+ return r.liq>=cfg.liq&&r.v1>=cfg.vol&&r.mc>=cfg.mmin&&r.mc<=cfg.mmax&&r.ratio>=cfg.ratio&&r.score>=cfg.score&&(r.c5||0)<cfg.maxRun}
+function stratClose(id,k,pnl,why){const st=ST[id],t=st.open[k];if(!t)return;const sol=STSZ*pnl;st.done.unshift({sym:t.sym,addr:t.addr,mc0:t.mc0,mc1:t.last,pnl,sol,why,score:t.score,c5:t.c5,t0:t.t0,t1:Date.now()});st.done=st.done.slice(0,100);delete st.open[k];crTrack(t.addr,sol)}
+function stratFree(id){const st=ST[id];return st.start+st.done.reduce((a,d)=>a+d.sol,0)-Object.keys(st.open).length*STSZ}
+function stratTick(){if(!R.length)return;for(const S of STRATS){const cfg=stratCfg(S),st=ST[S.id];
+  for(const k in st.open){const t=st.open[k],r=R.find(x=>x.key==k);if(r)t.last=r.mc;const pnl=t.last/t.mc0-1;
+   let why=pnl>=cfg.tp?'TP':pnl<=-cfg.sl?'SL':(Date.now()-t.t0>STTO?'ZEIT':'');if(why)stratClose(S.id,k,pnl,why)}
+  if(Object.keys(st.open).length<STMAX&&stratFree(S.id)>=STSZ-1e-9)for(const r of R){if(st.open[r.key])continue;
+   if(st.done.some(d=>d.addr==r.addr&&Date.now()-d.t1<STCD))continue;if(!stratHit(cfg,r))continue;
+   st.open[r.key]={sym:r.sym,addr:r.addr,chain:r.chain,mc0:r.mc,last:r.mc,t0:Date.now(),score:r.score,c5:r.c5};break}}
+ sv('strats',ST)}
+setInterval(stratTick,4000);
+function sparkline(vals){if(vals.length<2)return'';const lo=Math.min(...vals),hi=Math.max(...vals)||1,pts=vals.map((v,i)=>(i/(vals.length-1)*100).toFixed(1)+','+(30-((v-lo)/((hi-lo)||1))*28).toFixed(1)).join(' ');
+ return `<svg viewBox="0 0 100 30" style="width:100%;height:36px;margin:6px 0"><polyline fill="none" stroke="currentColor" stroke-width="2" points="${pts}"/></svg>`}
+function stratHtml(){const rows=STRATS.map(S=>{const st=ST[S.id],pnl=st.done.reduce((a,d)=>a+d.sol,0),wins=st.done.filter(d=>d.sol>0).length,wr=st.done.length?Math.round(wins/st.done.length*100):0,eq=[st.start];
+  [...st.done].sort((a,b)=>a.t1-b.t1).forEach(d=>eq.push(eq[eq.length-1]+d.sol));return{S,st,pnl,wr,eq}}).sort((a,b)=>b.pnl-a.pnl);
+ return `<div class=cd><div class=ch><b>🧪 Strategien-Vergleich</b><span class=ag>gleiche Signale, unabhängiges Kapital, ${STSZ} SOL/Trade</span></div>`+
+  rows.map(({S,st,pnl,wr,eq},i)=>`<div style="padding:10px 0;${i?'border-top:1px solid #ffffff12':''}"><div style="display:flex;justify-content:space-between;align-items:center"><b>${i==0&&pnl>0?'🏆 ':''}${X(S.name)}</b><span style="color:${pnl>=0?'var(--g)':'#ff5d73'};font-weight:700">${pnl>=0?'+':'−'}${Math.abs(pnl).toFixed(3)} SOL</span></div><small style="color:var(--m)">${st.done.length} Trades · ${wr}% Trefferquote · ${Object.keys(st.open).length} offen</small>${sparkline(eq)}</div>`).join('')+`</div>`}
+
 function ptSetSize(v){PTC.size=v;sv('ptsize',v);draw()}
 const QTG=10,QS={c:0,L:0,t:0};
 function QLv(){const n=Date.now();if(n-QS.t<2e3)return QS.L;const h=n-36e5,c=Object.values(PT.open).filter(t=>t.t0>h).length+PT.done.filter(d=>d.t0>h).length;QS.c=c;QS.L=c>=QTG?0:c>=7?1:c>=4?2:3;QS.t=n;return QS.L}
@@ -294,6 +372,7 @@ function ptTime(pd){const f=n=>(n>=0?'+':'')+n.toFixed(3),g=(l,a)=>a.length?l+' 
  const H=[['0–6',0,6],['6–12',6,12],['12–18',12,18],['18–24',18,24]].map(([n,a,b])=>g(n+' Uhr:',pd.filter(d=>{const h=new Date(d.t0).getHours();return h>=a&&h<b}))).filter(Boolean),D=['So','Mo','Di','Mi','Do','Fr','Sa'].map((n,i)=>g(n,pd.filter(d=>new Date(d.t0).getDay()==i))).filter(Boolean),hl=pd.filter(d=>d.hi!=null),
  hi=hl.length?'<br><small>Ø höchster Stand '+(hl.reduce((a,d)=>a+d.hi,0)/hl.length*100).toFixed(0)+'% · Ø tiefster '+(hl.reduce((a,d)=>a+d.lo,0)/hl.length*100).toFixed(0)+'% · '+hl.filter(d=>d.hi>=.25&&d.sol<0).length+' Trades erreichten ≥+25%, endeten aber im Minus</small>':'';
  return '<br><small><b>Nach Uhrzeit</b></small><br><small>'+H.join(' · ')+'</small><br><small><b>Nach Wochentag</b></small><br><small>'+D.join(' · ')+'</small>'+hi}
+async function liveExec(side,r,t){if(!+C.live||!C.botUrl||!C.botKey)return;try{const res=await fetch(C.botUrl.replace(/\/$/,'')+'/execute',{method:'POST',headers:{'x-key':C.botKey,'content-type':'application/json'},body:JSON.stringify({side,chain:r?r.chain:t.chain,addr:r?r.addr:t.addr,sol:PTC.size,key:r?r.key:undefined})});if(!res.ok)toast('⚠️ Echter Trade fehlgeschlagen: HTTP '+res.status)}catch(e){toast('⚠️ Echter Trade fehlgeschlagen: '+e.message)}}
 async function wSync(force){if(!C.botUrl||!C.botKey)return;const ks=Object.keys(PT.open).sort().join(),now=Date.now();if(!force&&ks==wSync.k&&(now-(wSync.t||0)<3e5||!ks))return;wSync.k=ks;wSync.t=now;
  try{await fetch(C.botUrl.replace(/\/$/,'')+'/sync',{method:'POST',headers:{'x-key':C.botKey,'content-type':'application/json'},body:JSON.stringify({open:PT.open,cfg:PTC})})}catch(e){}}
 async function wPull(){if(!C.botUrl||!C.botKey)return;try{const r=await fetch(C.botUrl.replace(/\/$/,'')+'/state',{headers:{'x-key':C.botKey}});if(!r.ok)return;const w=await r.json();let ch=0;
@@ -303,7 +382,7 @@ async function wPull(){if(!C.botUrl||!C.botKey)return;try{const r=await fetch(C.
   t.peak=Math.max(t.peak||0,o.peak||0);t.lo=Math.min(t.lo||t.mc0,o.lo||t.mc0);if((o.tk||[]).length>(t.tk||[]).length)t.tk=o.tk;t.x=t.x||{};for(const a in o.x||{})if(t.x[a]==null&&o.x[a]!=null)t.x[a]=o.x[a]}
  if(ch){PT.done.sort((a,b)=>b.t1-a.t1);PT.done=PT.done.slice(0,150)}sv('pt',PT);if(ch)draw()}catch(e){}}
 setInterval(wPull,2e4);setInterval(wSync,6e4);
-function ptBuy(r){PT.open[r.key]={sym:r.sym,chain:r.chain,addr:r.addr,mc0:r.mc,last:r.mc,t0:Date.now(),score:r.score,peak:r.mc,liq0:r.liq,f:feat(r),slip:0,x:{FIX20:null,FIX30:null}};sv('pt',PT);wSync(1)}
+function ptBuy(r){PT.open[r.key]={sym:r.sym,chain:r.chain,addr:r.addr,mc0:r.mc,last:r.mc,t0:Date.now(),score:r.score,peak:r.mc,liq0:r.liq,f:feat(r),slip:0,x:{FIX20:null,FIX30:null}};sv('pt',PT);wSync(1);liveExec('buy',r)}
 function ptConfirm(){const P=PT.pend;if(!P)return;for(const k of Object.keys(P)){const p=P[k];if(Date.now()-p.t<PTC.confirm)continue;delete P[k];const r=R.find(x=>x.key==k),w=!r?'Bestätigung':PT.open[k]?'':(r.mc<p.mc*.95||r.mc>p.mc*1.12||(r.c5||0)<-3)?'Bestätigung':botOk(r)||(ptStats().free<PTC.size-1e-9?'Kein Kapital':'');
  if(w){PT.sk=PT.sk||{};PT.sk[w]=(PT.sk[w]||0)+1;sv('pt',PT)}else if(r&&!PT.open[k])ptBuy(r);else sv('pt',PT)}}
 function ptTick(best){let n=0;for(const k of Object.keys(PT.open)){const t=PT.open[k],p=best[k],mc=p?(p.marketCap||p.fdv||0):0;if(mc>0)t.last=mc;const pnl=t.last/t.mc0-1;
@@ -315,7 +394,7 @@ function ptTick(best){let n=0;for(const k of Object.keys(PT.open)){const t=PT.op
   if(w){ptClose(k,pnl,w);n++}}return n}
 async function ptFast(){const o=Object.values(PT.open);if(!o.length||ptFast.b)return;ptFast.b=1;try{const by={},best={};o.forEach(t=>(by[t.chain]=by[t.chain]||[]).push(t.addr));for(const c in by)for(let i=0;i<by[c].length;i+=30){const ch=by[c].slice(i,i+30);for(const p of await J('/tokens/v1/'+c+'/'+ch.join(','))){if(!ch.includes(p.baseToken.address))continue;const key=c+':'+p.baseToken.address,l=(p.liquidity||{}).usd||0;if(!best[key]||l>((best[key].liquidity||{}).usd||0))best[key]=p}}const n=ptTick(best);sv('pt',PT);if(n)draw()}catch(e){}ptFast.b=0}
 setInterval(ptFast,2500);document.addEventListener('visibilitychange',()=>{if(!document.hidden)ptFast()});
-function ptClose(k,pnl,why){const t=PT.open[k],xs=(why=='SL'||why=='MOM'||why=='RUG'||why=='LOCK')?.02:0,nt=q=>(1+q)*(1-PTC.fee-(t.slip||0)-xs)/(1+PTC.fee+(t.slip||0))-1,net=TK(t).reduce((a,x)=>a+x.f*nt(x.p),0)+(1-TK(t).reduce((a,x)=>a+x.f,0))*nt(pnl),alt={};for(const a in (t.x||{}))alt[a]=nt(t.x[a]==null?pnl:t.x[a]);PT.done.unshift({alt,hi:(t.peak||t.mc0)/t.mc0-1,lo:(t.lo||t.mc0)/t.mc0-1,f:t.f,sym:t.sym,chain:t.chain,addr:t.addr,score:t.score,mc0:t.mc0,mc1:t.last,pnl:bp(t,pnl),net,sol:PTC.size*net,why,t0:t.t0,t1:Date.now()});PT.done=PT.done.slice(0,150);delete PT.open[k];sv('pt',PT);try{coachLearn(PT.done[0])}catch(e){}}
+function ptClose(k,pnl,why){const t=PT.open[k],xs=(why=='SL'||why=='MOM'||why=='RUG'||why=='LOCK')?.02:0,nt=q=>(1+q)*(1-PTC.fee-(t.slip||0)-xs)/(1+PTC.fee+(t.slip||0))-1,net=TK(t).reduce((a,x)=>a+x.f*nt(x.p),0)+(1-TK(t).reduce((a,x)=>a+x.f,0))*nt(pnl),alt={};for(const a in (t.x||{}))alt[a]=nt(t.x[a]==null?pnl:t.x[a]);PT.done.unshift({alt,hi:(t.peak||t.mc0)/t.mc0-1,lo:(t.lo||t.mc0)/t.mc0-1,f:t.f,sym:t.sym,chain:t.chain,addr:t.addr,score:t.score,mc0:t.mc0,mc1:t.last,pnl:bp(t,pnl),net,sol:PTC.size*net,why,t0:t.t0,t1:Date.now()});PT.done=PT.done.slice(0,150);delete PT.open[k];sv('pt',PT);liveExec('sell',null,t);crTrack(t.addr,PTC.size*net);try{coachLearn(PT.done[0])}catch(e){}}
 function ping(r,tag,kind){const NOW=Date.now();FD.unshift({ts:NOW,t:new Date(NOW).toTimeString().slice(0,5),tag,sym:r.sym,addr:r.addr,chain:r.chain,key:r.key,mc:r.mc,score:r.score});FD=FD.slice(0,120);sv('fd',FD);
  if(false&&tag=='🔔 SIGNAL'&&r.score>=PTC.min&&!PT.open[r.key]){const w=botOk(r);if(w){PT.sk=PT.sk||{};PT.sk[w]=(PT.sk[w]||0)+1;sv('pt',PT)}}
  if(false&&tag=='🔔 SIGNAL'&&r.score>=PTC.min&&!PT.open[r.key]&&botOk(r)==''){PT.pend=PT.pend||{};if(!PT.pend[r.key]){PT.pend[r.key]={t:Date.now(),mc:r.mc};sv('pt',PT)}}
@@ -429,7 +508,7 @@ function draw(){document.body.classList.toggle('sb',view!='home');document.query
  $('#k1').textContent=R.filter(x=>x.score>=DM).length+' Chancen';if($('#hk1'))$('#hk1').textContent=R.filter(x=>x.score>=DM).length+' Chancen live';{const s=ptStats();const v=PTC.start+s.real+s.ov-s.os;$('#k6').textContent=sol(v)+' SOL'+usd(v)}$('#k2').textContent=R.filter(hit).length+' aktiv';$('#k3').textContent=W.size+' ★ · Top '+Math.max(0,...R.map(x=>x.score));
  const tb=R.reduce((a,x)=>a+x.b,0),tsl=R.reduce((a,x)=>a+x.s,0),br=tb+tsl?tb/(tb+tsl)*100:50;$('#k4').textContent='Käufer '+br.toFixed(0)+'%';$('#br').style.width=br+'%';
  $('#k5').textContent=STZ.total?Math.round(STZ.wins/STZ.total*100)+'% Trefferquote':'noch keine Daten';
- if(pv){view=='dash'?renderDash():view=='stats'?(renderStats(),$('#cards').insertAdjacentHTML('beforeend',coachHtml())):renderPerf();renderFeed();R.forEach(r=>r.nw=false);return}
+ if(pv){view=='dash'?renderDash():view=='stats'?(renderStats(),$('#cards').insertAdjacentHTML('beforeend',stratHtml()+optimizeHtml()+coachHtml()+`<div class=cd>`+featImpHtml().replace(/^<div class=cd>|<\/div>$/g,'')+walkHtml()+`</div>`+crHtml())):renderPerf();renderFeed();R.forEach(r=>r.nw=false);return}
  $('#hot').innerHTML=[...R].filter(x=>x.score>=DM).sort((a,b)=>b.score-a.score).slice(0,3).map(x=>`<div class=hc><small>🔥 Top Score</small><br><b>${X(x.sym)}</b> <span class=chn>${CHN[x.chain]}</span> <span class=sc style="background:hsl(${x.score*1.2},85%,58%)">${x.score}</span><br><small>${F(x.mc)} · 5m ${x.c5.toFixed(0)}%</small>${coachP(x)}${al2(x)?'<br><small style="color:var(--g)">🔔 '+tm(al2(x).ts)+' · bei '+F(al2(x).mc)+'</small>':''}<br>${sp(x)}<button class=ca data-c="${X(x.addr)}"><code>${X(x.addr)}</code><span>⧉ kopieren</span></button></div>`).join('');
  $('#sr').innerHTML=[['score','Score'],['al','Neue Alarme']].map(([k,n])=>`<button data-k="${k}" class="${k==key?'on':''}">${n}${k==key?(dir<0?' ▼':' ▲'):''}</button>`).join('');
  $('#chn').innerHTML=CHAINS.map(c=>`<button data-ch="${c}" class="${CE.includes(c)?'on':''}">${CHN[c]}</button>`).join('');
