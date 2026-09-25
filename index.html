@@ -425,8 +425,8 @@ async function scan(){if(SCANNING)return;SCANNING=true;try{
  ptTick(best);
  {const q=ptStats(),v=PTC.start+q.real+q.ov-q.os;PT.eq=PT.eq||[];const L=PT.eq[PT.eq.length-1];if(!L||Date.now()-L[0]>=3e5)PT.eq.push([Date.now(),+v.toFixed(4)]);PT.eq=PT.eq.slice(-1000)}dsum();ptConfirm();
  sv('pt',PT);
- for(const k of trAll){const t=TR[k],p=best[k],age=Date.now()-t.t0;if(p&&age<3e5){const mc=p.marketCap||p.fdv||0;if(mc>t.peak)t.peak=mc;if(t.m1==null&&age>=1.5e5)t.m1=mc}
-  if(age>=3e5){const gain=t.peak/t.mc0-1,win=gain>=.2;STZ.total++;if(win)STZ.wins++;else STZ.losses++;STZH.unshift({sym:t.sym,chain:t.chain,gain,win,score:t.score??null,g1:t.m1!=null?t.m1/t.mc0-1:null,g6:p?(p.marketCap||p.fdv||0)/t.mc0-1:null,fl:t.fl||[],t:Date.now()});STZH=STZH.slice(0,60);delete TR[k];stzDirty=true}}
+ for(const k of trAll){const t=TR[k],p=best[k],age=Date.now()-t.t0,mc=p?(p.marketCap||p.fdv||0):0;if(p){if(mc>t.peak)t.peak=mc;if(t.m1==null&&age>=1.5e5)t.m1=mc}
+  if(age>=3e5){const gain=Math.max(t.peak,mc)/t.mc0-1,win=gain>=.2;STZ.total++;if(win)STZ.wins++;else STZ.losses++;STZH.unshift({sym:t.sym,chain:t.chain,gain,win,score:t.score??null,g1:t.m1!=null?t.m1/t.mc0-1:null,g6:p?(p.marketCap||p.fdv||0)/t.mc0-1:null,fl:t.fl||[],t:Date.now()});STZH=STZH.slice(0,60);delete TR[k];stzDirty=true}}
  if(stzDirty){sv('stz',STZ);sv('stzh',STZH)}sv('tr',TR);
  const spg=Date.now()-SPT>15e3;if(spg)SPT=Date.now();R=Object.values(best).map(p=>st(p,bo));
  {const now=Date.now(),symCount={};R.forEach(r=>{const s=r.sym.toUpperCase();symCount[s]=(symCount[s]||0)+1});
